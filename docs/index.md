@@ -1,7 +1,7 @@
 # Tab Wrangler - Documentation Index
 
 **Project:** Tab Wrangler Chrome/Brave Extension  
-**Status:** Planning Phase  
+**Status:** Architecture Complete  
 **Last Updated:** December 11, 2025
 
 ---
@@ -15,9 +15,8 @@ docs/
 ├── user-stories.md          # Epics and user stories with acceptance criteria
 ├── sprint-artifacts/        # Sprint-specific deliverables
 │   └── (sprint docs go here)
-└── technical/               # Technical documentation (future)
-    ├── architecture.md      # System design
-    └── api-notes.md         # Chrome API research
+└── technical/               # Technical documentation
+    └── architecture.md      # System design & data models
 ```
 
 ---
@@ -26,22 +25,30 @@ docs/
 
 | Document | Description | Status |
 |----------|-------------|--------|
-| [Product Brief](./product-brief.md) | Vision, target users, features, constraints | ✅ Draft |
-| [User Stories](./user-stories.md) | Epics and stories with acceptance criteria | ✅ Draft |
+| [Product Brief](./product-brief.md) | Vision, target users, features, constraints | ✅ Complete |
+| [User Stories](./user-stories.md) | 6 Epics, 18 MVP stories with acceptance criteria | ✅ Complete |
+| [Architecture](./technical/architecture.md) | Tech stack, components, data models, file structure | ✅ Complete |
 
 ---
 
 ## 🎯 Quick Links
 
 ### Core Features (MVP)
-1. **Duplicate Removal** - Detect and remove duplicate tabs
-2. **Auto-Grouping** - Rule-based tab organization
+1. **Duplicate Removal** - Detect and remove duplicate tabs (URL excluding query params)
+2. **Auto-Grouping** - Rule-based tab organization (glob + regex)
 3. **Auto-Close** - Age-based tab cleanup with whitelists
+4. **Tab Sorting** - Sort by domain, URL, title, or age
+5. **Archive & Undo** - Bookmark closed tabs, 1-day undo window
+
+### Tech Stack
+- **TypeScript** + **Preact** + **Vite**
+- Chrome Extension **Manifest V3**
+- **CRXJS** Vite plugin for development
 
 ### Key Constraints
 - Must work with Brave browser vertical tab bar
 - Personal use (no Web Store publication planned)
-- Technical users comfortable with URL patterns
+- Technical users comfortable with URL patterns (glob/regex)
 
 ---
 
@@ -50,18 +57,25 @@ docs/
 ### For Development
 1. Review [Product Brief](./product-brief.md) for project context
 2. Review [User Stories](./user-stories.md) for implementation requirements
-3. Check sprint-artifacts/ for current sprint focus
+3. Review [Architecture](./technical/architecture.md) for technical design
+4. Check sprint-artifacts/ for current sprint focus
 
 ### Next Steps
-- [ ] Answer open questions in Product Brief
-- [ ] Create technical architecture document
-- [ ] Set up extension boilerplate (Manifest V3)
-- [ ] Begin Sprint 1 planning
+- [x] Define product requirements
+- [x] Create user stories
+- [x] Design technical architecture
+- [ ] Set up project (Vite + CRXJS + TypeScript)
+- [ ] Sprint 1 planning
+- [ ] Begin implementation
 
 ---
 
 ## 📊 Project Status
 
-**Phase:** Requirements & Planning  
-**Next Milestone:** Technical Architecture Complete
+**Phase:** Ready for Implementation  
+**Completed:**
+- ✅ Product Brief (v1.2)
+- ✅ User Stories (18 MVP stories across 6 epics)
+- ✅ Technical Architecture
 
+**Next Milestone:** Project Setup & Sprint 1
