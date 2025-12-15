@@ -1,4 +1,6 @@
 import { useState } from 'preact/hooks';
+import { useSettings } from './hooks/useSettings';
+import type { DuplicateDetectionMode, SortOrder } from '../shared/types/rules';
 
 type Tab = 'grouping' | 'autoclose' | 'settings';
 
@@ -107,6 +109,19 @@ function AutoCloseRulesTab() {
 }
 
 function SettingsTab() {
+  const { settings, loading, updateSettings } = useSettings();
+
+  if (loading || !settings) {
+    return (
+      <section class="tab-content">
+        <div class="section-header">
+          <h2>Settings</h2>
+          <p>Loading settings...</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section class="tab-content">
       <div class="section-header">
@@ -118,8 +133,18 @@ function SettingsTab() {
         <h3>Duplicate Detection</h3>
         <label class="setting">
           <span>Detection Mode</span>
-          <select>
-            <option value="ignoreParams">Ignore query parameters (default)</option>
+          <select
+            value={settings.duplicateDetectionMode}
+            onChange={(e) =>
+              updateSettings({
+                duplicateDetectionMode: (e.target as HTMLSelectElement)
+                  .value as DuplicateDetectionMode,
+              })
+            }
+          >
+            <option value="ignoreParams">
+              Ignore query parameters (default)
+            </option>
             <option value="exact">Exact URL match</option>
             <option value="ignoreAnchors">Ignore anchors</option>
             <option value="ignoreBoth">Ignore params and anchors</option>
@@ -131,7 +156,16 @@ function SettingsTab() {
         <h3>Auto-Close</h3>
         <label class="setting">
           <span>Check interval</span>
-          <select>
+          <select
+            value={settings.autoCloseCheckInterval}
+            onChange={(e) =>
+              updateSettings({
+                autoCloseCheckInterval: Number(
+                  (e.target as HTMLSelectElement).value
+                ),
+              })
+            }
+          >
             <option value="60000">1 minute</option>
             <option value="300000">5 minutes (default)</option>
             <option value="600000">10 minutes</option>
@@ -140,7 +174,15 @@ function SettingsTab() {
         </label>
 
         <label class="setting checkbox">
-          <input type="checkbox" checked />
+          <input
+            type="checkbox"
+            checked={settings.autoCloseProtectPinned}
+            onChange={(e) =>
+              updateSettings({
+                autoCloseProtectPinned: (e.target as HTMLInputElement).checked,
+              })
+            }
+          />
           <span>Protect pinned tabs from auto-close</span>
         </label>
       </div>
@@ -148,7 +190,15 @@ function SettingsTab() {
       <div class="settings-group">
         <h3>Archive</h3>
         <label class="setting checkbox">
-          <input type="checkbox" checked />
+          <input
+            type="checkbox"
+            checked={settings.archiveEnabled}
+            onChange={(e) =>
+              updateSettings({
+                archiveEnabled: (e.target as HTMLInputElement).checked,
+              })
+            }
+          />
           <span>Save closed tabs to bookmarks</span>
         </label>
       </div>
@@ -157,7 +207,14 @@ function SettingsTab() {
         <h3>Sorting</h3>
         <label class="setting">
           <span>Default sort order</span>
-          <select>
+          <select
+            value={settings.defaultSortOrder}
+            onChange={(e) =>
+              updateSettings({
+                defaultSortOrder: (e.target as HTMLSelectElement).value as SortOrder,
+              })
+            }
+          >
             <option value="domain">By Domain</option>
             <option value="url">By URL</option>
             <option value="title">By Title</option>
@@ -167,7 +224,15 @@ function SettingsTab() {
         </label>
 
         <label class="setting checkbox">
-          <input type="checkbox" checked />
+          <input
+            type="checkbox"
+            checked={settings.sortPreserveGroups}
+            onChange={(e) =>
+              updateSettings({
+                sortPreserveGroups: (e.target as HTMLInputElement).checked,
+              })
+            }
+          />
           <span>Preserve tab groups when sorting</span>
         </label>
       </div>

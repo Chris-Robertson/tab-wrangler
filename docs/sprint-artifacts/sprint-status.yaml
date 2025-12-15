@@ -42,7 +42,7 @@ development_status:
   # Epic 1: Duplicate Tab Management
   epic-1: in-progress
   1-1-remove-duplicate-tabs: done
-  1-2-configure-duplicate-detection-rules: backlog
+  1-2-configure-duplicate-detection-rules: done
   epic-1-retrospective: optional
 
   # Epic 2: Auto-Group Tabs

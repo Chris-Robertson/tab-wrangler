@@ -5,10 +5,21 @@ import { resolve } from 'path';
 import manifest from './src/manifest.json';
 
 export default defineConfig({
+  root: 'src',
   plugins: [
     preact(),
     crx({ manifest }),
   ],
+  server: {
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      port: 5173,
+    },
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -22,12 +33,19 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: resolve(__dirname, 'dist'),
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/index.html'),
         options: resolve(__dirname, 'src/options/index.html'),
       },
     },
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    root: resolve(__dirname),
+    include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
   },
 });
 

@@ -104,7 +104,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, _removeInfo) => {
 /**
  * Message handler for popup/options communication
  */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   console.log('Message received:', message);
 
   // Handle async responses
@@ -158,7 +158,7 @@ async function handleMessage(message: unknown): Promise<unknown> {
       return { success: true };
 
     case 'UNDO_CLOSE': {
-      const entryId = (msg as { entryId: string }).entryId;
+      const entryId = (msg as { type: string; entryId: string }).entryId;
       const { recentlyClosed } = await storage.getLocalStorage();
       
       // Find the entry to restore
@@ -183,14 +183,14 @@ async function handleMessage(message: unknown): Promise<unknown> {
     }
 
     case 'TOGGLE_AUTO_GROUP': {
-      const settings = await storage.getSettings();
-      await storage.updateSettings({ ...settings, autoGroupEnabled: (msg as { enabled: boolean }).enabled });
+      const enabled = (msg as { type: string; enabled: boolean }).enabled;
+      await storage.updateSettings({ autoGroupEnabled: enabled });
       return { success: true };
     }
 
     case 'TOGGLE_AUTO_CLOSE': {
-      const settings = await storage.getSettings();
-      await storage.updateSettings({ ...settings, autoCloseEnabled: (msg as { enabled: boolean }).enabled });
+      const enabled = (msg as { type: string; enabled: boolean }).enabled;
+      await storage.updateSettings({ autoCloseEnabled: enabled });
       await setupAlarms();
       return { success: true };
     }

@@ -46,21 +46,44 @@ export class StorageService {
 
   // ============ Settings ============
 
+  /**
+   * Get settings, merging stored values with defaults to handle partial objects.
+   * This ensures all fields are present even if storage has incomplete data.
+   */
   async getSettings(): Promise<Settings> {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.SETTINGS);
-    return result[STORAGE_KEYS.sync.SETTINGS] ?? DEFAULT_SETTINGS;
+    try {
+      const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.SETTINGS) as Record<string, Partial<Settings> | undefined>;
+      const stored = result[STORAGE_KEYS.sync.SETTINGS];
+      if (!stored) {
+        return { ...DEFAULT_SETTINGS };
+      }
+      return { ...DEFAULT_SETTINGS, ...stored };
+    } catch (error) {
+      console.error('[StorageService] Failed to get settings:', error);
+      return { ...DEFAULT_SETTINGS };
+    }
   }
 
-  async updateSettings(settings: Settings): Promise<void> {
-    await chrome.storage.sync.set({
-      [STORAGE_KEYS.sync.SETTINGS]: settings,
-    });
+  /**
+   * Update settings by merging partial updates with current settings.
+   */
+  async updateSettings(newSettings: Partial<Settings>): Promise<void> {
+    try {
+      const current = await this.getSettings();
+      const updated = { ...current, ...newSettings };
+      await chrome.storage.sync.set({
+        [STORAGE_KEYS.sync.SETTINGS]: updated,
+      });
+    } catch (error) {
+      console.error('[StorageService] Failed to update settings:', error);
+      throw error;
+    }
   }
 
   // ============ Grouping Rules ============
 
   async getGroupingRules(): Promise<GroupingRule[]> {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.GROUPING_RULES);
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.GROUPING_RULES) as Record<string, GroupingRule[] | undefined>;
     return result[STORAGE_KEYS.sync.GROUPING_RULES] ?? [];
   }
 
@@ -73,7 +96,7 @@ export class StorageService {
   // ============ Auto-Close Rules ============
 
   async getAutoCloseRules(): Promise<AutoCloseRule[]> {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.AUTO_CLOSE_RULES);
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.AUTO_CLOSE_RULES) as Record<string, AutoCloseRule[] | undefined>;
     return result[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] ?? [];
   }
 
@@ -86,7 +109,7 @@ export class StorageService {
   // ============ Whitelist Rules ============
 
   async getWhitelistRules(): Promise<WhitelistRule[]> {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.WHITELIST_RULES);
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.WHITELIST_RULES) as Record<string, WhitelistRule[] | undefined>;
     return result[STORAGE_KEYS.sync.WHITELIST_RULES] ?? [];
   }
 
@@ -99,7 +122,7 @@ export class StorageService {
   // ============ Archive Exclusion Rules ============
 
   async getArchiveExclusionRules(): Promise<ArchiveExclusionRule[]> {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.ARCHIVE_EXCLUSION_RULES);
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.ARCHIVE_EXCLUSION_RULES) as Record<string, ArchiveExclusionRule[] | undefined>;
     return result[STORAGE_KEYS.sync.ARCHIVE_EXCLUSION_RULES] ?? [];
   }
 
@@ -112,24 +135,24 @@ export class StorageService {
   // ============ Full Sync Storage ============
 
   async getSyncStorage(): Promise<SyncStorage> {
-    const result = await chrome.storage.sync.get(null);
+    const result = await chrome.storage.sync.get(null) as Record<string, unknown>;
     return {
-      groupingRules: result[STORAGE_KEYS.sync.GROUPING_RULES] ?? [],
-      autoCloseRules: result[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] ?? [],
-      whitelistRules: result[STORAGE_KEYS.sync.WHITELIST_RULES] ?? [],
-      archiveExclusionRules: result[STORAGE_KEYS.sync.ARCHIVE_EXCLUSION_RULES] ?? [],
-      settings: result[STORAGE_KEYS.sync.SETTINGS] ?? DEFAULT_SETTINGS,
+      groupingRules: (result[STORAGE_KEYS.sync.GROUPING_RULES] as GroupingRule[] | undefined) ?? [],
+      autoCloseRules: (result[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] as AutoCloseRule[] | undefined) ?? [],
+      whitelistRules: (result[STORAGE_KEYS.sync.WHITELIST_RULES] as WhitelistRule[] | undefined) ?? [],
+      archiveExclusionRules: (result[STORAGE_KEYS.sync.ARCHIVE_EXCLUSION_RULES] as ArchiveExclusionRule[] | undefined) ?? [],
+      settings: (result[STORAGE_KEYS.sync.SETTINGS] as Settings | undefined) ?? DEFAULT_SETTINGS,
     };
   }
 
   // ============ Local Storage ============
 
   async getLocalStorage(): Promise<LocalStorage> {
-    const result = await chrome.storage.local.get(null);
+    const result = await chrome.storage.local.get(null) as Record<string, unknown>;
     return {
-      tabActivity: result[STORAGE_KEYS.local.TAB_ACTIVITY] ?? {},
-      recentlyClosed: result[STORAGE_KEYS.local.RECENTLY_CLOSED] ?? [],
-      tabActivityByUrl: result[STORAGE_KEYS.local.TAB_ACTIVITY_BY_URL] ?? {},
+      tabActivity: (result[STORAGE_KEYS.local.TAB_ACTIVITY] as LocalStorage['tabActivity'] | undefined) ?? {},
+      recentlyClosed: (result[STORAGE_KEYS.local.RECENTLY_CLOSED] as LocalStorage['recentlyClosed'] | undefined) ?? [],
+      tabActivityByUrl: (result[STORAGE_KEYS.local.TAB_ACTIVITY_BY_URL] as LocalStorage['tabActivityByUrl'] | undefined) ?? {},
     };
   }
 
