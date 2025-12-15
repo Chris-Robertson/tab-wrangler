@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
-import { sendMessage, type ActionResponse } from '@shared/messaging';
+import { sendMessage, type ActionResponse, type KeepStrategy } from '@shared/messaging';
 import type { SortOrder } from '@shared/types';
 
 interface QuickActionsProps {
@@ -11,9 +11,15 @@ interface Toast {
   type: 'success' | 'info';
 }
 
+interface DuplicateConfirmation {
+  count: number;
+  keepStrategy: KeepStrategy;
+}
+
 export function QuickActions({ onAction }: QuickActionsProps) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<DuplicateConfirmation | null>(null);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -27,17 +33,41 @@ export function QuickActions({ onAction }: QuickActionsProps) {
     setToast({ message, type });
   };
 
-  const handleRemoveDuplicates = () =>
+  // Step 1: Scan for duplicates and show confirmation
+  const handleScanDuplicates = async () => {
+    const response = await sendMessage<ActionResponse>({ type: 'GET_DUPLICATE_COUNT' });
+    if (response.count && response.count > 0) {
+      setDuplicateConfirm({ count: response.count, keepStrategy: 'oldest' });
+    } else {
+      showToast('No duplicates found', 'info');
+    }
+  };
+
+  // Step 2: Confirm and remove duplicates
+  const handleConfirmRemove = () =>
     onAction(async () => {
+      if (!duplicateConfirm) return;
       const response = await sendMessage<ActionResponse>({
         type: 'REMOVE_DUPLICATES',
+        keepStrategy: duplicateConfirm.keepStrategy,
       });
+      setDuplicateConfirm(null);
       if (response.count && response.count > 0) {
         showToast(`✓ Removed ${response.count} duplicate${response.count === 1 ? '' : 's'}`);
       } else {
         showToast('No duplicates found', 'info');
       }
     });
+
+  const handleCancelRemove = () => {
+    setDuplicateConfirm(null);
+  };
+
+  const handleKeepStrategyChange = (strategy: KeepStrategy) => {
+    if (duplicateConfirm) {
+      setDuplicateConfirm({ ...duplicateConfirm, keepStrategy: strategy });
+    }
+  };
 
   const handleOrganizeAll = () =>
     onAction(async () => {
@@ -66,8 +96,35 @@ export function QuickActions({ onAction }: QuickActionsProps) {
         </div>
       )}
 
+      {duplicateConfirm && (
+        <div class="confirm-dialog">
+          <p class="confirm-message">
+            Found <strong>{duplicateConfirm.count}</strong> duplicate{duplicateConfirm.count === 1 ? '' : 's'} to remove
+          </p>
+          <div class="confirm-options">
+            <label class="confirm-label">Keep:</label>
+            <select
+              class="confirm-select"
+              value={duplicateConfirm.keepStrategy}
+              onChange={(e) => handleKeepStrategyChange((e.target as HTMLSelectElement).value as KeepStrategy)}
+            >
+              <option value="oldest">Oldest tab</option>
+              <option value="newest">Newest tab</option>
+            </select>
+          </div>
+          <div class="confirm-buttons">
+            <button class="confirm-btn confirm-btn-primary" onClick={handleConfirmRemove}>
+              Remove
+            </button>
+            <button class="confirm-btn confirm-btn-cancel" onClick={handleCancelRemove}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div class="action-buttons">
-        <button class="action-button" onClick={handleRemoveDuplicates}>
+        <button class="action-button" onClick={handleScanDuplicates} disabled={!!duplicateConfirm}>
           Remove Duplicates
         </button>
 

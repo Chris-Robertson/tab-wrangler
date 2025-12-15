@@ -4,10 +4,14 @@
 
 import type { SortOrder } from './types';
 
+/** Keep strategy for duplicate removal */
+export type KeepStrategy = 'oldest' | 'newest';
+
 /** Message types for communication between popup/options and service worker */
 export type Message =
   | { type: 'GET_STATS' }
-  | { type: 'REMOVE_DUPLICATES' }
+  | { type: 'GET_DUPLICATE_COUNT' }
+  | { type: 'REMOVE_DUPLICATES'; keepStrategy?: KeepStrategy }
   | { type: 'ORGANIZE_ALL_TABS' }
   | { type: 'SORT_TABS'; sortOrder: SortOrder }
   | { type: 'UNDO_CLOSE'; entryId: string }

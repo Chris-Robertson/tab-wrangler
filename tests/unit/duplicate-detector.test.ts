@@ -18,7 +18,6 @@ const mockRecentlyClosed: ClosedTabEntry[] = [];
 const mockStorageService = {
   getLocalStorage: vi.fn().mockImplementation(() => Promise.resolve({ recentlyClosed: mockRecentlyClosed })),
   updateLocalStorage: vi.fn().mockImplementation(() => Promise.resolve()),
-  getSettings: vi.fn().mockImplementation(() => Promise.resolve({ duplicateDetectionMode: 'ignoreParams' })),
 };
 
 vi.stubGlobal('chrome', {

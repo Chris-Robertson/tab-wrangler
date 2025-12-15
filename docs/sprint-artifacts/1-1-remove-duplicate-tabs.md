@@ -1,6 +1,6 @@
 # Story 1.1: Remove Duplicate Tabs
 
-**Status:** Ready for Review  
+**Status:** Done  
 **Epic:** 1 - Duplicate Tab Management  
 **Created:** 2025-12-11
 
@@ -70,6 +70,17 @@
   - [x] Implement `getDuplicateCount()` in DuplicateDetector
   - [x] Update `getStats()` in background to return real `duplicateCount`
   - [x] Stats component already displays this field
+
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][High] Implement AC3 "display duplicates before removal": add a pre-scan + confirmation UX before calling removal. [`src/popup/components/QuickActions.tsx:30-40`]
+- [x] [AI-Review][High] Implement AC4 keep strategy selection end-to-end (UI + message payload + background handler; default keep oldest). [`src/background/index.ts:136-143`]
+- [x] [AI-Review][High] Implement real undo for recently closed entries (service worker `UNDO_CLOSE` should reopen tab + update `recentlyClosed`). [`src/background/index.ts:153-156`]
+- [x] [AI-Review][Medium] Align `recentlyClosed` cap with constants (avoid duplicate hard-coded 50 vs `RECENTLY_CLOSED_MAX_ENTRIES=100`). [`src/background/modules/duplicate-detector.ts:146-150`, `src/shared/constants.ts:20-22`]
+- [x] [AI-Review][Medium] Update story Dev Agent Record → File List to include git-changed files not currently listed (story/sprint-status + shared edits). [`docs/sprint-artifacts/1-1-remove-duplicate-tabs.md:257-267`]
+- [x] [AI-Review][Medium] Revisit "oldest tab" heuristic: tab ID ordering is only a proxy for creation order; decide on stronger semantics or document limitation. [`src/background/modules/duplicate-detector.ts:98-104`]
+- [x] [AI-Review][Low] Reconcile test count claim ("17 unit tests") with actual tests present. [`docs/sprint-artifacts/1-1-remove-duplicate-tabs.md:249-255`, `tests/unit/duplicate-detector.test.ts:50-296`]
+- [x] [AI-Review][Low] Clean up unused test mocks/fixtures (e.g., `getSettings` unused in detector tests) to reduce noise. [`tests/unit/duplicate-detector.test.ts:18-22`]
 
 ---
 
@@ -264,6 +275,11 @@ Files modified:
 - `src/background/index.ts`
 - `src/popup/components/QuickActions.tsx`
 - `src/popup/styles/popup.css`
+- `src/shared/messaging.ts`
+- `src/shared/types/rules.ts`
+- `src/shared/utils/pattern-matcher.ts`
+- `docs/sprint-artifacts/sprint-status.yaml`
+- `docs/sprint-artifacts/1-1-remove-duplicate-tabs.md`
 
 ---
 
@@ -272,3 +288,25 @@ Files modified:
 | Date | Change |
 |------|--------|
 | 2025-12-15 | Implemented duplicate tab detection and removal (Story 1.1) |
+| 2025-12-15 | Senior Developer Review (AI): logged follow-up action items; status moved back to in-progress |
+| 2025-12-15 | Addressed all 8 code review findings: AC3 pre-scan confirmation, AC4 keep strategy, UNDO_CLOSE, constants alignment, documentation |
+| 2025-12-15 | Senior Developer Review (AI): re-review passed; AC3/AC4/AC6 validated against implementation; status set to done |
+
+---
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Chris  
+**Date:** 2025-12-15  
+**Outcome:** Approve ✅
+
+### Evidence (key deltas)
+
+- **AC3 (pre-scan + confirm)**: `GET_DUPLICATE_COUNT` + confirmation UI before removal. (`src/popup/components/QuickActions.tsx:36-124`, `src/background/index.ts:136-140`)
+- **AC4 (keep strategy)**: UI selection + message payload + background handler. (`src/popup/components/QuickActions.tsx:99-124`, `src/shared/messaging.ts:7-19`, `src/background/index.ts:142-150`)
+- **AC6 (undo capability)**: `UNDO_CLOSE` reopens URL and removes entry. (`src/background/index.ts:160-183`)
+- **Constants alignment**: `RECENTLY_CLOSED_MAX_ENTRIES` used in duplicate close path. (`src/background/modules/duplicate-detector.ts:7-8`, `src/background/modules/duplicate-detector.ts:150-153`)
+
+### Notes
+
+- Unit tests: `tests/unit/duplicate-detector.test.ts` reports **17 passing tests** (re-run in this environment may log a Vitest worker shutdown EPERM warning, but exit code was 0).

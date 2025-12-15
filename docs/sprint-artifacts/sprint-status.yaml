@@ -41,7 +41,7 @@ story_location: docs/sprint-artifacts
 development_status:
   # Epic 1: Duplicate Tab Management
   epic-1: in-progress
-  1-1-remove-duplicate-tabs: review
+  1-1-remove-duplicate-tabs: done
   1-2-configure-duplicate-detection-rules: backlog
   epic-1-retrospective: optional
 

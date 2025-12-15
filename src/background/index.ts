@@ -133,11 +133,18 @@ async function handleMessage(message: unknown): Promise<unknown> {
     case 'GET_STATS':
       return getStats();
 
+    case 'GET_DUPLICATE_COUNT': {
+      const settings = await storage.getSettings();
+      const count = await duplicateDetector.getDuplicateCount(settings.duplicateDetectionMode);
+      return { success: true, count };
+    }
+
     case 'REMOVE_DUPLICATES': {
       const settings = await storage.getSettings();
+      const keepStrategy = (msg as { keepStrategy?: 'oldest' | 'newest' }).keepStrategy ?? 'oldest';
       const result = await duplicateDetector.removeDuplicates(
         settings.duplicateDetectionMode,
-        'oldest' // Default to keeping oldest tab
+        keepStrategy
       );
       return { success: true, count: result.removed.length };
     }
@@ -150,9 +157,30 @@ async function handleMessage(message: unknown): Promise<unknown> {
       // TODO: Implement
       return { success: true };
 
-    case 'UNDO_CLOSE':
-      // TODO: Implement
+    case 'UNDO_CLOSE': {
+      const entryId = (msg as { entryId: string }).entryId;
+      const { recentlyClosed } = await storage.getLocalStorage();
+      
+      // Find the entry to restore
+      const entryIndex = recentlyClosed.findIndex(entry => entry.id === entryId);
+      if (entryIndex === -1) {
+        return { success: false, message: 'Entry not found' };
+      }
+      
+      const entry = recentlyClosed[entryIndex];
+      
+      // Reopen the tab
+      await chrome.tabs.create({ url: entry.url, active: false });
+      
+      // Remove from recentlyClosed list
+      const updatedRecentlyClosed = [
+        ...recentlyClosed.slice(0, entryIndex),
+        ...recentlyClosed.slice(entryIndex + 1),
+      ];
+      await storage.updateLocalStorage({ recentlyClosed: updatedRecentlyClosed });
+      
       return { success: true };
+    }
 
     case 'TOGGLE_AUTO_GROUP': {
       const settings = await storage.getSettings();

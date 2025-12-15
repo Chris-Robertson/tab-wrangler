@@ -4,6 +4,7 @@
 
 import { normalizeUrl, isChromeInternalUrl } from '@shared/utils/url-utils';
 import { generateId } from '@shared/utils/id-utils';
+import { RECENTLY_CLOSED_MAX_ENTRIES } from '@shared/constants';
 import type { DuplicateDetectionMode, ClosedTabEntry } from '@shared/types';
 
 /**
@@ -96,7 +97,10 @@ export class DuplicateDetector {
     const kept: chrome.tabs.Tab[] = [];
 
     for (const group of groups) {
-      // Sort by tab ID (proxy for creation order - lower ID = older tab)
+      // Sort by tab ID as a proxy for creation order (lower ID = older tab).
+      // LIMITATION: Tab IDs are assigned incrementally per browser session but are
+      // not guaranteed to reflect true creation order across restarts or in all
+      // edge cases. This heuristic works well for typical usage patterns.
       const sorted = [...group.tabs].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
 
       // Determine which tab to keep based on strategy
@@ -143,10 +147,9 @@ export class DuplicateDetector {
       // Prepend new entries to the front of the list
       const updatedRecentlyClosed = [...closedEntries, ...recentlyClosed];
 
-      // Keep only the most recent 50 entries to avoid unbounded growth
-      const MAX_RECENTLY_CLOSED = 50;
+      // Keep only the most recent entries to avoid unbounded growth
       await this.storage.updateLocalStorage({
-        recentlyClosed: updatedRecentlyClosed.slice(0, MAX_RECENTLY_CLOSED),
+        recentlyClosed: updatedRecentlyClosed.slice(0, RECENTLY_CLOSED_MAX_ENTRIES),
       });
     }
 
