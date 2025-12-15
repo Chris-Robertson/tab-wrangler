@@ -2,6 +2,7 @@
 
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import preact from 'eslint-config-preact';
 import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
@@ -9,6 +10,7 @@ export default tseslint.config(
     ignores: ['dist/**', 'node_modules/**'],
   },
   eslint.configs.recommended,
+  ...preact,
   ...tseslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -21,11 +23,6 @@ export default tseslint.config(
         },
       },
       globals: {
-        // Browser globals
-        console: 'readonly',
-        document: 'readonly',
-        window: 'readonly',
-        navigator: 'readonly',
         // Chrome extension APIs
         chrome: 'readonly',
       },
@@ -37,12 +34,6 @@ export default tseslint.config(
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'off', // Allow console for extension debugging
-    },
-    settings: {
-      react: {
-        pragma: 'h',
-        pragmaFrag: 'Fragment',
-      },
     },
   },
   prettierConfig,
