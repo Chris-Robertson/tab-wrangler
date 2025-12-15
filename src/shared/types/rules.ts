@@ -38,7 +38,7 @@ export interface AutoCloseRule extends BaseRule {
 }
 
 /** Rule for whitelisting tabs from auto-close */
-export interface WhitelistRule extends BaseRule {}
+export type WhitelistRule = BaseRule;
 
 /** Rule for excluding URLs from archive */
 export interface ArchiveExclusionRule {

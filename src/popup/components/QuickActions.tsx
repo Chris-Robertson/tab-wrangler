@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { sendMessage, type ActionResponse } from '@shared/messaging';
 import type { SortOrder } from '@shared/types';
 
@@ -6,16 +6,36 @@ interface QuickActionsProps {
   onAction: (action: () => Promise<void>) => Promise<void>;
 }
 
+interface Toast {
+  message: string;
+  type: 'success' | 'info';
+}
+
 export function QuickActions({ onAction }: QuickActionsProps) {
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type });
+  };
 
   const handleRemoveDuplicates = () =>
     onAction(async () => {
       const response = await sendMessage<ActionResponse>({
         type: 'REMOVE_DUPLICATES',
       });
-      if (response.count) {
-        console.log(`Removed ${response.count} duplicates`);
+      if (response.count && response.count > 0) {
+        showToast(`✓ Removed ${response.count} duplicate${response.count === 1 ? '' : 's'}`);
+      } else {
+        showToast('No duplicates found', 'info');
       }
     });
 
@@ -39,6 +59,12 @@ export function QuickActions({ onAction }: QuickActionsProps) {
   return (
     <section class="quick-actions">
       <h2>Quick Actions</h2>
+
+      {toast && (
+        <div class={`toast toast-${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
 
       <div class="action-buttons">
         <button class="action-button" onClick={handleRemoveDuplicates}>

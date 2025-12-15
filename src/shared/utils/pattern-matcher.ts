@@ -16,10 +16,9 @@ export function matchPattern(
   try {
     if (patternType === 'glob') {
       return micromatch.isMatch(url, pattern);
-    } else {
-      const regex = new RegExp(pattern);
-      return regex.test(url);
     }
+    const regex = new RegExp(pattern);
+    return regex.test(url);
   } catch {
     // Invalid pattern - treat as no match
     console.warn(`Invalid ${patternType} pattern:`, pattern);

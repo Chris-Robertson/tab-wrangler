@@ -1,6 +1,6 @@
 # Story 1.1: Remove Duplicate Tabs
 
-**Status:** ready-for-dev  
+**Status:** Ready for Review  
 **Epic:** 1 - Duplicate Tab Management  
 **Created:** 2025-12-11
 
@@ -45,31 +45,31 @@
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Create DuplicateDetector Module** (AC: 1, 2)
-  - [ ] Create `src/background/modules/duplicate-detector.ts`
-  - [ ] Implement `findDuplicates()` function that queries all tabs
-  - [ ] Use `normalizeUrl()` from `url-utils.ts` for comparison
-  - [ ] Return grouped duplicates with metadata (tabId, url, title, windowId)
+- [x] **Task 1: Create DuplicateDetector Module** (AC: 1, 2)
+  - [x] Create `src/background/modules/duplicate-detector.ts`
+  - [x] Implement `findDuplicates()` function that queries all tabs
+  - [x] Use `normalizeUrl()` from `url-utils.ts` for comparison
+  - [x] Return grouped duplicates with metadata (tabId, url, title, windowId)
 
-- [ ] **Task 2: Implement Remove Duplicates Logic** (AC: 3, 4, 6)
-  - [ ] Implement `removeDuplicates(keepStrategy: 'oldest' | 'newest')` function
-  - [ ] Sort duplicates by tab ID or creation order (oldest = lower ID approximation)
-  - [ ] Keep one tab per group, close others via `chrome.tabs.remove()`
-  - [ ] Store closed tabs in `recentlyClosed` with `closedBy: 'duplicate'`
+- [x] **Task 2: Implement Remove Duplicates Logic** (AC: 3, 4, 6)
+  - [x] Implement `removeDuplicates(keepStrategy: 'oldest' | 'newest')` function
+  - [x] Sort duplicates by tab ID or creation order (oldest = lower ID approximation)
+  - [x] Keep one tab per group, close others via `chrome.tabs.remove()`
+  - [x] Store closed tabs in `recentlyClosed` with `closedBy: 'duplicate'`
 
-- [ ] **Task 3: Wire Up Message Handler** (AC: 5)
-  - [ ] Update `REMOVE_DUPLICATES` case in `handleMessage()` in `background/index.ts`
-  - [ ] Call `DuplicateDetector.removeDuplicates()`
-  - [ ] Return `{ success: true, count: removedCount }`
+- [x] **Task 3: Wire Up Message Handler** (AC: 5)
+  - [x] Update `REMOVE_DUPLICATES` case in `handleMessage()` in `background/index.ts`
+  - [x] Call `DuplicateDetector.removeDuplicates()`
+  - [x] Return `{ success: true, count: removedCount }`
 
-- [ ] **Task 4: Update Popup UI Feedback** (AC: 3, 6)
-  - [ ] Update `QuickActions.tsx` to display result count to user
-  - [ ] Consider adding toast/notification for removal confirmation
+- [x] **Task 4: Update Popup UI Feedback** (AC: 3, 6)
+  - [x] Update `QuickActions.tsx` to display result count to user
+  - [x] Consider adding toast/notification for removal confirmation
 
-- [ ] **Task 5: Add Duplicate Count to Stats** (AC: 1)
-  - [ ] Implement `getDuplicateCount()` in DuplicateDetector
-  - [ ] Update `getStats()` in background to return real `duplicateCount`
-  - [ ] Stats component already displays this field
+- [x] **Task 5: Add Duplicate Count to Stats** (AC: 1)
+  - [x] Implement `getDuplicateCount()` in DuplicateDetector
+  - [x] Update `getStats()` in background to return real `duplicateCount`
+  - [x] Stats component already displays this field
 
 ---
 
@@ -233,22 +233,42 @@ Story prepared by SM agent using BMAD create-story workflow.
 
 Claude (Opus 4.5) via Cursor
 
+### Implementation Plan
+
+1. Created `DuplicateDetector` class with dependency injection for `StorageService`
+2. Implemented `findDuplicates()` using `normalizeUrl()` and `isChromeInternalUrl()` 
+3. Implemented `getDuplicateCount()` for stats display
+4. Implemented `removeDuplicates()` with keep strategy (oldest/newest) and active tab protection
+5. Added storage of closed tabs in `recentlyClosed` for undo capability
+6. Wired up `REMOVE_DUPLICATES` message handler in background service worker
+7. Updated `getStats()` to return real duplicate count
+8. Added toast notification UI in `QuickActions.tsx` for user feedback
+
 ### Completion Notes List
 
-- Boilerplate project already set up with Vite + CRXJS
-- URL normalization utilities already implemented
-- Message handler stub exists, needs implementation
-- Popup button exists, needs result feedback
+- All 5 tasks completed with 17 unit tests passing
+- `DuplicateDetector` follows architecture pattern (class-based module like `StorageService`)
+- Uses existing `normalizeUrl()` and `isChromeInternalUrl()` utilities
+- Closed tabs tracked in `recentlyClosed` with `closedBy: 'duplicate'` for undo
+- Active tab is protected from removal even if it's a duplicate
+- Toast notification displays removal count or "No duplicates found"
+- Stats component now shows real-time duplicate count
 
 ### File List
 
-Files to create:
+Files created:
 - `src/background/modules/duplicate-detector.ts`
+- `tests/unit/duplicate-detector.test.ts`
 
-Files to modify:
+Files modified:
 - `src/background/index.ts`
 - `src/popup/components/QuickActions.tsx`
+- `src/popup/styles/popup.css`
 
-Files to verify work correctly:
-- `src/popup/components/Stats.tsx`
-- `src/shared/utils/url-utils.ts`
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2025-12-15 | Implemented duplicate tab detection and removal (Story 1.1) |

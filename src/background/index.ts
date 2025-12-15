@@ -6,10 +6,12 @@
  */
 
 import { StorageService } from './modules/storage-service';
+import { DuplicateDetector } from './modules/duplicate-detector';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
 
-// Initialize storage service
+// Initialize services
 const storage = new StorageService();
+const duplicateDetector = new DuplicateDetector(storage);
 
 /**
  * Extension installation handler
@@ -76,7 +78,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 /**
  * Tab updated handler (URL changes)
  */
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
   if (changeInfo.url) {
     console.log('Tab URL updated:', tabId, changeInfo.url);
     // TODO: Check auto-group rules and apply
@@ -94,7 +96,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 /**
  * Tab removed handler
  */
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
+chrome.tabs.onRemoved.addListener(async (tabId, _removeInfo) => {
   console.log('Tab removed:', tabId);
   // TODO: Clean up tab activity data
 });
@@ -131,9 +133,14 @@ async function handleMessage(message: unknown): Promise<unknown> {
     case 'GET_STATS':
       return getStats();
 
-    case 'REMOVE_DUPLICATES':
-      // TODO: Implement
-      return { success: true, count: 0 };
+    case 'REMOVE_DUPLICATES': {
+      const settings = await storage.getSettings();
+      const result = await duplicateDetector.removeDuplicates(
+        settings.duplicateDetectionMode,
+        'oldest' // Default to keeping oldest tab
+      );
+      return { success: true, count: result.removed.length };
+    }
 
     case 'ORGANIZE_ALL_TABS':
       // TODO: Implement
@@ -172,13 +179,15 @@ async function getStats() {
   const tabs = await chrome.tabs.query({});
   const groups = await chrome.tabGroups.query({});
   const { recentlyClosed } = await storage.getLocalStorage();
+  const settings = await storage.getSettings();
 
-  // TODO: Calculate duplicate count
+  // Calculate real duplicate count
+  const duplicateCount = await duplicateDetector.getDuplicateCount(settings.duplicateDetectionMode);
 
   return {
     tabCount: tabs.length,
     groupCount: groups.length,
-    duplicateCount: 0,
+    duplicateCount,
     recentlyClosedCount: recentlyClosed?.length ?? 0,
   };
 }
