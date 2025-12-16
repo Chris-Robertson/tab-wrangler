@@ -1,6 +1,9 @@
 import { useState } from 'preact/hooks';
 import { useSettings } from './hooks/useSettings';
-import type { DuplicateDetectionMode, SortOrder } from '../shared/types/rules';
+import { useGroupingRules, type NewRuleInput } from './hooks/useGroupingRules';
+import { GroupingRuleList } from './components/GroupingRuleList';
+import { RuleEditor } from './components/RuleEditor';
+import type { DuplicateDetectionMode, SortOrder, GroupingRule } from '../shared/types/rules';
 
 type Tab = 'grouping' | 'autoclose' | 'settings';
 
@@ -49,6 +52,50 @@ export function App() {
 }
 
 function GroupingRulesTab() {
+  const { rules, loading, addRule, updateRule, deleteRule, reorderRules } = useGroupingRules();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<GroupingRule | undefined>(undefined);
+
+  const handleAddClick = () => {
+    setEditingRule(undefined);
+    setEditorOpen(true);
+  };
+
+  const handleEditClick = (rule: GroupingRule) => {
+    setEditingRule(rule);
+    setEditorOpen(true);
+  };
+
+  const handleSave = async (ruleData: NewRuleInput) => {
+    if (editingRule) {
+      await updateRule(editingRule.id, ruleData);
+    } else {
+      await addRule(ruleData);
+    }
+    setEditorOpen(false);
+    setEditingRule(undefined);
+  };
+
+  const handleCancel = () => {
+    setEditorOpen(false);
+    setEditingRule(undefined);
+  };
+
+  if (loading) {
+    return (
+      <section class="tab-content">
+        <div class="section-header">
+          <h2>Grouping Rules</h2>
+          <p>Define URL patterns to automatically group matching tabs.</p>
+        </div>
+        <div class="loading-state">
+          <div class="loading-spinner" />
+          <span>Loading rules...</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section class="tab-content">
       <div class="section-header">
@@ -56,14 +103,28 @@ function GroupingRulesTab() {
         <p>Define URL patterns to automatically group matching tabs.</p>
       </div>
 
-      <div class="placeholder">
-        <p>Rule editor coming soon!</p>
-        <p class="hint">
-          Rules will be matched in order. First matching rule wins.
-        </p>
-      </div>
+      <GroupingRuleList
+        rules={rules}
+        onEdit={handleEditClick}
+        onDelete={deleteRule}
+        onReorder={reorderRules}
+      />
 
-      <button class="primary-button">Add Rule</button>
+      <p class="hint" style={{ marginBottom: 'var(--spacing-md)' }}>
+        Rules are matched in order. First matching rule wins.
+      </p>
+
+      <button class="primary-button" onClick={handleAddClick}>
+        Add Rule
+      </button>
+
+      {editorOpen && (
+        <RuleEditor
+          rule={editingRule}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      )}
     </section>
   );
 }

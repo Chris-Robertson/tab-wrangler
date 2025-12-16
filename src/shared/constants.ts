@@ -57,6 +57,22 @@ export const TAB_GROUP_COLORS = [
   { value: 'orange', label: 'Orange' },
 ] as const;
 
+/** CSS color values for each Chrome tab group color */
+export const TAB_GROUP_COLOR_VALUES: Record<
+  (typeof TAB_GROUP_COLORS)[number]['value'],
+  string
+> = {
+  grey: '#5f6368',
+  blue: '#1a73e8',
+  red: '#d93025',
+  yellow: '#f9ab00',
+  green: '#188038',
+  pink: '#d01884',
+  purple: '#9334e6',
+  cyan: '#007b83',
+  orange: '#e8710a',
+};
+
 /** Duration presets for auto-close rules */
 export const DURATION_PRESETS = [
   { value: 30 * 60 * 1000, label: '30 minutes' },
