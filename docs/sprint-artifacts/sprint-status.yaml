@@ -47,7 +47,7 @@ development_status:
 
   # Epic 2: Auto-Group Tabs
   epic-2: in-progress
-  2-1-define-grouping-rules: review
+  2-1-define-grouping-rules: done
   2-2-auto-group-new-tabs: backlog
   2-3-bulk-organize-existing-tabs: backlog
   epic-2-retrospective: optional

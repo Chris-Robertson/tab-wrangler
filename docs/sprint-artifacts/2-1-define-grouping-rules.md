@@ -1,8 +1,9 @@
 # Story 2.1: Define Grouping Rules
 
-**Status:** Ready for Review  
+**Status:** Done  
 **Epic:** 2 - Auto-Group Tabs  
 **Created:** 2025-12-16
+**Completed:** 2026-01-15
 
 ---
 
