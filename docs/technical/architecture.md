@@ -564,23 +564,39 @@ async function sortTabsByDomain(preserveGroups: boolean) {
 
 ### Decision 2: Pattern Matching Library
 
-**Choice:** Custom implementation with micromatch for globs
+**Choice:** Custom glob-to-RegExp implementation with micromatch library
 
 **Rationale:**
-- **micromatch**: Battle-tested glob matching, ~6KB
+- Custom `globToRegExp()` converts simple glob syntax (`*`, `?`) to RegExp
+- `micromatch` library also available for more complex glob features
 - Native RegExp for regex patterns
-- Unified interface via RuleEngine
+- Unified interface via `pattern-matcher.ts` utilities
 
 **Implementation:**
 ```typescript
-import micromatch from 'micromatch';
+// Core matching implementation
+function globToRegExp(glob: string): RegExp {
+  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regexSource = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(`^${regexSource}$`);
+}
 
-function matchPattern(url: string, pattern: string, type: 'glob' | 'regex'): boolean {
+export function matchPattern(url: string, pattern: string, type: 'glob' | 'regex'): boolean {
   if (type === 'glob') {
-    return micromatch.isMatch(url, pattern);
+    return globToRegExp(pattern).test(url);
   } else {
     return new RegExp(pattern).test(url);
   }
+}
+
+// Rule matching utilities
+export function findFirstMatchingRule(url: string, rules: Rule[]): Rule | null {
+  for (const rule of rules) {
+    if (matchPattern(url, rule.pattern, rule.patternType)) {
+      return rule;
+    }
+  }
+  return null;
 }
 ```
 

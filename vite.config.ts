@@ -10,6 +10,11 @@ export default defineConfig({
     preact(),
     crx({ manifest }),
   ],
+  define: {
+    'process.env': '{}',
+    'process.platform': '""',
+    'process.version': '""',
+  },
   server: {
     port: 5173,
     strictPort: true,
@@ -41,6 +46,7 @@ export default defineConfig({
       },
     },
   },
+  // @ts-expect-error - Vitest config is not part of Vite types but is valid
   test: {
     globals: true,
     environment: 'jsdom',

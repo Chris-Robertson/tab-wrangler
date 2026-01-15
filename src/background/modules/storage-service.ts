@@ -84,7 +84,11 @@ export class StorageService {
 
   async getGroupingRules(): Promise<GroupingRule[]> {
     const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.GROUPING_RULES) as Record<string, GroupingRule[] | undefined>;
-    return result[STORAGE_KEYS.sync.GROUPING_RULES] ?? [];
+    const rules = result[STORAGE_KEYS.sync.GROUPING_RULES] ?? [];
+    return rules.map((rule) => ({
+      ...rule,
+      enabled: rule.enabled ?? true,
+    }));
   }
 
   async saveGroupingRules(rules: GroupingRule[]): Promise<void> {

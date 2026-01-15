@@ -191,6 +191,25 @@ function SettingsTab() {
       </div>
 
       <div class="settings-group">
+        <h3>Auto-Grouping</h3>
+        <label class="setting checkbox">
+          <input
+            type="checkbox"
+            checked={settings.autoGroupEnabled}
+            onChange={(e) =>
+              updateSettings({
+                autoGroupEnabled: (e.target as HTMLInputElement).checked,
+              })
+            }
+          />
+          <span>Auto-group tabs based on URL patterns</span>
+        </label>
+        <p class="hint">
+          When enabled, new tabs will be automatically grouped according to your grouping rules.
+        </p>
+      </div>
+
+      <div class="settings-group">
         <h3>Duplicate Detection</h3>
         <label class="setting">
           <span>Detection Mode</span>

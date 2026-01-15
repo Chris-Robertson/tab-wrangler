@@ -7,22 +7,21 @@
 
 import { StorageService } from './modules/storage-service';
 import { DuplicateDetector } from './modules/duplicate-detector';
+import { AutoGroupManager } from './modules/auto-group-manager';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
 
 // Initialize services
 const storage = new StorageService();
 const duplicateDetector = new DuplicateDetector(storage);
+const autoGroupManager = new AutoGroupManager(storage);
 
 /**
  * Extension installation handler
  */
 chrome.runtime.onInstalled.addListener(async (details) => {
-  console.log('Tab Wrangler installed:', details.reason);
-
   if (details.reason === 'install') {
     // First install - initialize default settings
     await storage.initializeDefaults();
-    console.log('Initialized default settings');
   }
 
   // Set up alarms for periodic tasks
@@ -33,7 +32,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
  * Extension startup handler
  */
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('Tab Wrangler started');
   await setupAlarms();
 });
 
@@ -49,7 +47,6 @@ async function setupAlarms(): Promise<void> {
     chrome.alarms.create(ALARM_AUTO_CLOSE_CHECK, {
       periodInMinutes,
     });
-    console.log(`Auto-close alarm set for every ${periodInMinutes} minutes`);
   } else {
     chrome.alarms.clear(ALARM_AUTO_CLOSE_CHECK);
   }
@@ -59,11 +56,8 @@ async function setupAlarms(): Promise<void> {
  * Alarm handler
  */
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  console.log('Alarm fired:', alarm.name);
-
   if (alarm.name === ALARM_AUTO_CLOSE_CHECK) {
     // TODO: Implement auto-close check
-    console.log('Running auto-close check...');
   }
 });
 
@@ -71,33 +65,41 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
  * Tab created handler
  */
 chrome.tabs.onCreated.addListener(async (tab) => {
-  console.log('Tab created:', tab.id);
-  // TODO: Track tab activity
+  // Auto-group if URL is available (AC1)
+  if (tab.url) {
+    try {
+      await autoGroupManager.autoGroupTab(tab.id!, tab.url, tab.windowId);
+    } catch (error) {
+      console.error('[Background] Failed to auto-group new tab:', error);
+    }
+  }
 });
 
 /**
  * Tab updated handler (URL changes)
  */
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.url) {
-    console.log('Tab URL updated:', tabId, changeInfo.url);
-    // TODO: Check auto-group rules and apply
+    // Auto-group on URL change (AC1)
+    try {
+      await autoGroupManager.autoGroupTab(tabId, changeInfo.url, tab.windowId);
+    } catch (error) {
+      console.error('[Background] Failed to auto-group updated tab:', error);
+    }
   }
 });
 
 /**
  * Tab activated handler (user switched to tab)
  */
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  console.log('Tab activated:', activeInfo.tabId);
+chrome.tabs.onActivated.addListener(async (_activeInfo) => {
   // TODO: Update tab activity timestamp
 });
 
 /**
  * Tab removed handler
  */
-chrome.tabs.onRemoved.addListener(async (tabId, _removeInfo) => {
-  console.log('Tab removed:', tabId);
+chrome.tabs.onRemoved.addListener(async (_tabId, _removeInfo) => {
   // TODO: Clean up tab activity data
 });
 
@@ -105,8 +107,6 @@ chrome.tabs.onRemoved.addListener(async (tabId, _removeInfo) => {
  * Message handler for popup/options communication
  */
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  console.log('Message received:', message);
-
   // Handle async responses
   handleMessage(message)
     .then(sendResponse)
@@ -219,6 +219,4 @@ async function getStats() {
     recentlyClosedCount: recentlyClosed?.length ?? 0,
   };
 }
-
-console.log('Tab Wrangler service worker loaded');
 

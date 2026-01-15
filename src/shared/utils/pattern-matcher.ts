@@ -1,9 +1,17 @@
 /**
  * Pattern matching utilities for glob and regex patterns
  */
-
-import micromatch from 'micromatch';
 import type { PatternType } from '../types';
+
+function globToRegExp(glob: string): RegExp {
+  // Convert a minimal glob syntax to a RegExp:
+  // - '*' => '.*'
+  // - '?' => '.'
+  // Everything else is regex-escaped.
+  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regexSource = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(`^${regexSource}$`);
+}
 
 /**
  * Match a URL against a pattern
@@ -15,7 +23,7 @@ export function matchPattern(
 ): boolean {
   try {
     if (patternType === 'glob') {
-      return micromatch.isMatch(url, pattern);
+      return globToRegExp(pattern).test(url);
     }
     const regex = new RegExp(pattern);
     return regex.test(url);
@@ -41,9 +49,8 @@ export function validatePattern(
     if (patternType === 'regex') {
       new RegExp(pattern);
     }
-    // Glob patterns are more permissive, but we can try to parse
     if (patternType === 'glob') {
-      micromatch.isMatch('test', pattern);
+      globToRegExp(pattern);
     }
     return { valid: true };
   } catch (e) {
@@ -56,15 +63,13 @@ export function validatePattern(
 
 /**
  * Find the first matching rule from a list
+ * Note: This function does NOT filter by enabled status - caller must filter enabled rules
  */
 export function findFirstMatchingRule<T extends { pattern: string; patternType: PatternType; enabled?: boolean }>(
   url: string,
   rules: T[]
 ): T | null {
   for (const rule of rules) {
-    // Skip disabled rules if the enabled property exists
-    if ('enabled' in rule && !rule.enabled) continue;
-    
     if (matchPattern(url, rule.pattern, rule.patternType)) {
       return rule;
     }
