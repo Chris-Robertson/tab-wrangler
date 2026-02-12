@@ -48,8 +48,8 @@ development_status:
   # Epic 2: Auto-Group Tabs
   epic-2: in-progress
   2-1-define-grouping-rules: done
-  2-2-auto-group-new-tabs: in-progress
-  2-3-bulk-organize-existing-tabs: backlog
+  2-2-auto-group-new-tabs: done
+  2-3-bulk-organize-existing-tabs: review
   epic-2-retrospective: optional
 
   # Epic 3: Auto-Close Tabs
