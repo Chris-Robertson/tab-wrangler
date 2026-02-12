@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'preact/hooks';
 import { sendMessage, type ActionResponse, type KeepStrategy } from '@shared/messaging';
 import type { SortOrder } from '@shared/types';
+import { useHasGroupingRules } from '../hooks/useHasGroupingRules';
 
 interface QuickActionsProps {
   onAction: (action: () => Promise<void>) => Promise<void>;
+  isLoading?: boolean;
 }
 
 interface Toast {
   message: string;
-  type: 'success' | 'info';
+  type: 'success' | 'info' | 'error';
 }
 
 interface DuplicateConfirmation {
@@ -16,10 +18,11 @@ interface DuplicateConfirmation {
   keepStrategy: KeepStrategy;
 }
 
-export function QuickActions({ onAction }: QuickActionsProps) {
+export function QuickActions({ onAction, isLoading = false }: QuickActionsProps) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<DuplicateConfirmation | null>(null);
+  const { hasRules, loading: rulesLoading } = useHasGroupingRules();
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -29,8 +32,12 @@ export function QuickActions({ onAction }: QuickActionsProps) {
     }
   }, [toast]);
 
-  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
+  };
+
+  const dismissToast = () => {
+    setToast(null);
   };
 
   // Step 1: Scan for duplicates and show confirmation
@@ -74,8 +81,33 @@ export function QuickActions({ onAction }: QuickActionsProps) {
       const response = await sendMessage<ActionResponse>({
         type: 'ORGANIZE_ALL_TABS',
       });
-      if (response.count) {
-        console.log(`Organized ${response.count} tabs`);
+      
+      // AC5: Show summary for partial success + errors as warning
+      if (response.tabsOrganized && response.tabsOrganized > 0) {
+        const groupsCount = response.groupsAffected || 0;
+        const groupText = groupsCount === 1 ? 'group' : 'groups';
+        
+        // AC5: If some tabs failed, show "X tabs organized, Y failed" format
+        if (response.tabsFailed && response.tabsFailed > 0) {
+          const summaryMsg = `${response.tabsOrganized} tabs organized, ${response.tabsFailed} failed`;
+          const errorMsg = response.errors && response.errors.length > 0 ? response.errors[0] : 'Some tabs could not be organized';
+          showToast(`✓ ${summaryMsg}\n⚠ ${errorMsg}`, 'error');
+        } else if (response.errors && response.errors.length > 0) {
+          // Partial success without failed count: show summary + warning about errors
+          const summaryMsg = `✓ ${response.tabsOrganized} tabs organized into ${groupsCount} ${groupText}`;
+          const errorMsg = response.errors[0];
+          showToast(`${summaryMsg}\n⚠ Warning: ${errorMsg}`, 'error');
+        } else {
+          // Full success
+          showToast(`✓ ${response.tabsOrganized} tabs organized into ${groupsCount} ${groupText}`);
+        }
+      } else if (response.errors && response.errors.length > 0) {
+        // Complete failure: show error only
+        const errorMsg = response.errors[0];
+        showToast(`⚠ ${errorMsg}`, 'error');
+      } else {
+        // No-op case
+        showToast('No tabs organized', 'info');
       }
     });
 
@@ -92,7 +124,10 @@ export function QuickActions({ onAction }: QuickActionsProps) {
 
       {toast && (
         <div class={`toast toast-${toast.type}`}>
-          {toast.message}
+          <span>{toast.message}</span>
+          <button class="toast-close" onClick={dismissToast} aria-label="Dismiss">
+            ✕
+          </button>
         </div>
       )}
 
@@ -124,18 +159,24 @@ export function QuickActions({ onAction }: QuickActionsProps) {
       )}
 
       <div class="action-buttons">
-        <button class="action-button" onClick={handleScanDuplicates} disabled={!!duplicateConfirm}>
+        <button class="action-button" onClick={handleScanDuplicates} disabled={!!duplicateConfirm || isLoading}>
           Remove Duplicates
         </button>
 
-        <button class="action-button" onClick={handleOrganizeAll}>
-          Organize All
+        <button 
+          class="action-button" 
+          onClick={handleOrganizeAll}
+          disabled={!hasRules || rulesLoading || isLoading}
+          title={!hasRules && !rulesLoading ? 'No grouping rules defined. Create rules in the Options page.' : ''}
+        >
+          Organize All Tabs
         </button>
 
         <div class="sort-dropdown">
           <button
             class="action-button"
             onClick={() => setShowSortMenu(!showSortMenu)}
+            disabled={isLoading}
           >
             Sort Tabs ▾
           </button>

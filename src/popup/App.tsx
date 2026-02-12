@@ -8,6 +8,7 @@ import { RecentlyClosed } from './components/RecentlyClosed';
 export function App() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadStats = async () => {
@@ -28,11 +29,14 @@ export function App() {
   }, []);
 
   const handleAction = async (action: () => Promise<void>) => {
+    setActionLoading(true);
     try {
       await action();
       await loadStats(); // Refresh stats after action
     } catch (err) {
       console.error('Action failed:', err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -61,7 +65,7 @@ export function App() {
       <main class="popup-content">
         {stats && <Stats stats={stats} />}
 
-        <QuickActions onAction={handleAction} />
+        <QuickActions onAction={handleAction} isLoading={actionLoading} />
 
         <Toggles />
 

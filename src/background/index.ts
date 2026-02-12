@@ -9,6 +9,7 @@ import { StorageService } from './modules/storage-service';
 import { DuplicateDetector } from './modules/duplicate-detector';
 import { AutoGroupManager } from './modules/auto-group-manager';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
+import { isMessage } from '@shared/messaging';
 
 // Initialize services
 const storage = new StorageService();
@@ -123,13 +124,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
  * Handle incoming messages
  */
 async function handleMessage(message: unknown): Promise<unknown> {
-  if (!message || typeof message !== 'object' || !('type' in message)) {
+  // Use type guard from messaging module
+  if (!isMessage(message)) {
     throw new Error('Invalid message format');
   }
 
-  const msg = message as { type: string };
-
-  switch (msg.type) {
+  switch (message.type) {
     case 'GET_STATS':
       return getStats();
 
@@ -141,7 +141,7 @@ async function handleMessage(message: unknown): Promise<unknown> {
 
     case 'REMOVE_DUPLICATES': {
       const settings = await storage.getSettings();
-      const keepStrategy = (msg as { keepStrategy?: 'oldest' | 'newest' }).keepStrategy ?? 'oldest';
+      const keepStrategy = message.keepStrategy ?? 'oldest';
       const result = await duplicateDetector.removeDuplicates(
         settings.duplicateDetectionMode,
         keepStrategy
@@ -149,20 +149,27 @@ async function handleMessage(message: unknown): Promise<unknown> {
       return { success: true, count: result.removed.length };
     }
 
-    case 'ORGANIZE_ALL_TABS':
-      // TODO: Implement
-      return { success: true, count: 0 };
+    case 'ORGANIZE_ALL_TABS': {
+      const result = await autoGroupManager.organizeAllTabs();
+      return {
+        success: result.errors === undefined || result.errors.length === 0,
+        tabsOrganized: result.tabsOrganized,
+        groupsCreated: result.groupsCreated,
+        groupsAffected: result.groupsAffected,
+        tabsFailed: result.tabsFailed,
+        errors: result.errors,
+      };
+    }
 
     case 'SORT_TABS':
       // TODO: Implement
       return { success: true };
 
     case 'UNDO_CLOSE': {
-      const entryId = (msg as { type: string; entryId: string }).entryId;
       const { recentlyClosed } = await storage.getLocalStorage();
       
       // Find the entry to restore
-      const entryIndex = recentlyClosed.findIndex(entry => entry.id === entryId);
+      const entryIndex = recentlyClosed.findIndex(entry => entry.id === message.entryId);
       if (entryIndex === -1) {
         return { success: false, message: 'Entry not found' };
       }
@@ -183,20 +190,20 @@ async function handleMessage(message: unknown): Promise<unknown> {
     }
 
     case 'TOGGLE_AUTO_GROUP': {
-      const enabled = (msg as { type: string; enabled: boolean }).enabled;
-      await storage.updateSettings({ autoGroupEnabled: enabled });
+      await storage.updateSettings({ autoGroupEnabled: message.enabled });
       return { success: true };
     }
 
     case 'TOGGLE_AUTO_CLOSE': {
-      const enabled = (msg as { type: string; enabled: boolean }).enabled;
-      await storage.updateSettings({ autoCloseEnabled: enabled });
+      await storage.updateSettings({ autoCloseEnabled: message.enabled });
       await setupAlarms();
       return { success: true };
     }
 
     default:
-      throw new Error(`Unknown message type: ${msg.type}`);
+      // TypeScript exhaustiveness check
+      const exhaustiveCheck: never = message;
+      throw new Error(`Unknown message type: ${(exhaustiveCheck as { type: string }).type}`);
   }
 }
 

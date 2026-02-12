@@ -29,7 +29,12 @@ export interface StatsResponse {
 export interface ActionResponse {
   success: boolean;
   message?: string;
-  count?: number;
+  count?: number;  // For duplicate removal
+  tabsOrganized?: number;  // For organize all tabs
+  groupsCreated?: number;
+  groupsAffected?: number;  // Total groups touched (existing + new)
+  tabsFailed?: number;  // Number of tabs that failed to organize
+  errors?: string[];
 }
 
 /** Send a message to the service worker */
