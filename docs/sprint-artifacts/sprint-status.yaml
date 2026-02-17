@@ -40,21 +40,21 @@ story_location: docs/sprint-artifacts
 
 development_status:
   # Epic 1: Duplicate Tab Management
-  epic-1: in-progress
+  epic-1: done
   1-1-remove-duplicate-tabs: done
   1-2-configure-duplicate-detection-rules: done
   epic-1-retrospective: optional
 
   # Epic 2: Auto-Group Tabs
-  epic-2: in-progress
+  epic-2: done
   2-1-define-grouping-rules: done
   2-2-auto-group-new-tabs: done
   2-3-bulk-organize-existing-tabs: done
   epic-2-retrospective: optional
 
   # Epic 3: Auto-Close Tabs
-  epic-3: backlog
-  3-1-define-auto-close-rules: backlog
+  epic-3: in-progress
+  3-1-define-auto-close-rules: ready-for-dev
   3-2-track-tab-activity: backlog
   3-3-auto-close-stale-tabs: backlog
   3-4-define-whitelist-rules: backlog
