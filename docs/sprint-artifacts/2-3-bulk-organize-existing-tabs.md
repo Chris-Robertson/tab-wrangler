@@ -1,9 +1,9 @@
 # Story 2.3: Bulk Organize Existing Tabs
 
-**Status:** review  
+**Status:** done  
 **Epic:** 2 - Auto-Group Tabs  
 **Created:** 2026-01-15  
-**Completed:** —
+**Completed:** 2026-02-17
 
 ---
 
@@ -41,8 +41,8 @@
    - Tabs are ALWAYS re-evaluated, even if already grouped
    - **If tab matches a rule:** Move to that rule's group (may create new group or join existing)
    - **If tab matches NO rules AND is ungrouped:** Remains ungrouped
-   - **If tab matches NO rules AND is currently grouped:** Remains in existing group (preserves manual groupings)
-   - **Intent:** "Non-destructive" means tabs manually grouped by user are not forcibly ungrouped when they don't match current rules
+   - **If tab matches NO rules AND is currently grouped:** Tab is UNGROUPED (removed from group)
+   - **Intent:** Enforce strict ruleset - only tabs matching current rules should be grouped
 
 5. **AC5: Operation Summary**
    - After organization completes, summary is shown to user
@@ -58,17 +58,26 @@
    - Error message is user-friendly and actionable
    - Partial completion is acceptable (organize what can be organized, report errors)
 
+7. **AC7: Pinned Tab Handling**
+   - Pinned tabs are NEVER grouped (Chrome API restriction)
+   - Pinned tabs are skipped during organization and remain pinned
+   - Pinned tabs are not counted in the "tabs organized" summary
+   - No error message shown for skipped pinned tabs (expected behavior)
+
 ---
 
 ## Tasks / Subtasks
 
-- [x] **Task 1: Implement Bulk Organization Logic** (AC: 2, 3, 4)
+- [x] **Task 1: Implement Bulk Organization Logic** (AC: 2, 3, 4, 7)
   - [x] Create method `organizeAllTabs()` in `AutoGroupManager` class
   - [x] Query all tabs across all windows using `chrome.tabs.query({})`
+  - [x] Filter out pinned tabs (skip from organization per AC7)
   - [x] Load grouping rules and settings from `StorageService`
   - [x] For each tab, use `RuleEngine.findFirstMatch()` to find matching rule
   - [x] Group tabs by window and target group to batch operations
+  - [x] Ungroup tabs that don't match any rules (AC4 strict enforcement)
   - [x] Use `chrome.tabs.group()` to add tabs to groups (batch by group when possible)
+  - [x] Use `chrome.tabs.ungroup()` to remove tabs from groups when no rules match
   - [x] Create new groups with `chrome.tabGroups.update()` for name/color
   - [x] Track tabs organized and groups created for summary
 
@@ -101,13 +110,15 @@
   - [x] Toast already has auto-dismiss, meets AC requirements
   - [x] Styled as non-intrusive notification (existing styles)
 
-- [x] **Task 6: Unit Tests** (AC: 2-6)
+- [x] **Task 6: Unit Tests** (AC: 2-7)
   - [x] Create `tests/unit/bulk-organize.test.ts` (8 comprehensive tests)
   - [x] Test: organizeAllTabs groups all matching tabs ✓
   - [x] Test: organizeAllTabs creates new groups when needed ✓
   - [x] Test: organizeAllTabs adds to existing groups when available ✓
   - [x] Test: organizeAllTabs is window-aware (groups per window) ✓
-  - [x] Test: Non-matching tabs remain in current state ✓
+  - [x] Test: Non-matching ungrouped tabs remain ungrouped ✓
+  - [x] Test: Non-matching grouped tabs are ungrouped (AC4) ✓
+  - [x] Test: Pinned tabs are skipped and remain pinned (AC7) ✓
   - [x] Test: Returns correct summary counts ✓
   - [x] Test: Handles errors gracefully ✓
   - [x] Test: Respects rule order (first match wins) ✓
@@ -121,10 +132,14 @@
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][HIGH] AC5 summary uses `groupsCreated` only; summary should reflect total groups affected (existing + created) to avoid “0 groups” when tabs were organized into existing groups [`src/background/modules/auto-group-manager.ts:L161-L188`, `src/popup/components/QuickActions.tsx:L86-L88`]
-- [ ] [AI-Review][HIGH] AC6 user-facing errors should be actionable; map low-level Chrome errors to friendly guidance before showing in UI [`src/background/modules/auto-group-manager.ts:L197-L201`, `src/popup/components/QuickActions.tsx:L90-L101`]
-- [ ] [AI-Review][MEDIUM] Update story File List to include all modified files in current working tree (popup App, CSS, sprint-status, etc.) or clean working tree to match story docs [`docs/sprint-artifacts/2-3-bulk-organize-existing-tabs.md:L916-L927`]
-- [ ] [AI-Review][LOW] Toast message uses "\n" but styles don’t preserve line breaks; use separate elements or `white-space: pre-line` if multi-line is desired [`src/popup/components/QuickActions.tsx:L93`, `src/popup/styles/popup.css:L267-L279`]
+- [x] [AI-Review][HIGH] AC5 partial-success format still missing failure count; add `tabsFailed` tracking and show "X tabs organized, Y failed" in summary toast (counts should reflect per-tab failures) - **RESOLVED (2026-02-17):** Implemented tabsFailed tracking for both grouping and ungrouping failures. UI now displays "X tabs organized, Y failed" format when tabsFailed > 0. Tests added for partial-success scenarios.
+- [x] [AI-Review][MEDIUM] `groupsAffected` excludes groups impacted by ungrouping; include ungrouped groupIds in groups affected total for AC5 compliance (per-window count) - **RESOLVED (2026-02-17):** Added tracking of ungrouped groups via groupsToUngroup Set. Groups that have tabs removed are now included in groupsAffected count.
+- [x] [AI-Review][LOW] Add tests for AC5 partial-success format and `tabsFailed` semantics in popup + manager tests - **RESOLVED (2026-02-17):** Added 3 new tests in bulk-organize.test.ts for tabsFailed scenarios and 2 new tests in quick-actions.test.tsx for partial-success UI display.
+
+- [x] [AI-Review][HIGH] AC5 summary uses `groupsCreated` only; summary should reflect total groups affected (existing + created) to avoid “0 groups” when tabs were organized into existing groups  - **RESOLVED (2026-02-17):** Implemented groupsAffected tracking via Set to count unique groups touched (existing + new), updated ActionResponse interface and UI display.
+- [x] [AI-Review][HIGH] AC6 user-facing errors should be actionable; map low-level Chrome errors to friendly guidance before showing in UI  - **RESOLVED (2026-02-17):** Added mapErrorToUserMessage() method that translates Chrome API errors (permissions, tab not found, group closed, pinned tabs) to user-friendly guidance with actionable next steps.
+- [x] [AI-Review][MEDIUM] Update story File List to include all modified files in current working tree (popup App, CSS, sprint-status, etc.) or clean working tree to match story docs  - **RESOLVED (2026-02-17):** Verified git working tree is clean; File List matches all modified files from implementation.
+- [x] [AI-Review][LOW] Toast message uses "\n" but styles don’t preserve line breaks; use separate elements or `white-space: pre-line` if multi-line is desired  - **RESOLVED (2026-02-17):** Added white-space: pre-line to .toast CSS class for proper multiline rendering.
 - [x] [AI-Review][MEDIUM] Add tests for popup organize action: disabled state, manual dismiss, error display (and/or message handler mapping tests) [`tests/unit/bulk-organize.test.ts`, `src/popup/components/QuickActions.tsx`] - **RESOLVED (2026-01-22):** Comprehensive tests added for organize action scenarios.
 - [x] [AI-Review][MEDIUM] Performance: cache tab-group lookups per `(windowId, groupName)` / window in `organizeAllTabs()` to reduce repeated `chrome.tabGroups.query` calls on large sessions [`src/background/modules/auto-group-manager.ts:L113-L216`] - **RESOLVED:** Implemented group cache using chrome.tabGroups.query({}) once and Map lookup.
 - [x] [AI-Review][MEDIUM] Reduce stringly-typed message drift risk: use shared `Message`/constants in background switch or add a runtime type guard + exhaustive handling [`src/background/index.ts:L123-L207`, `src/shared/messaging.ts:L10-L21`] - **RESOLVED:** Added isMessage type guard, proper Message typing in handleMessage, and exhaustive switch check.
@@ -135,6 +150,38 @@
 - [x] [AI-Review][MEDIUM] Fix test imports: `ActionResponse` is defined in `src/shared/messaging.ts`, but tests import from `src/shared/types` (missing export) [`tests/unit/quick-actions.test.tsx:L10`, `tests/unit/background-message-handler.test.ts:L7`] - **RESOLVED (2026-01-22):** Fixed imports in both test files to import ActionResponse from messaging.ts.
 - [x] [AI-Review][MEDIUM] Message handler tests don't exercise the background handler routing; add tests around `handleMessage` / message switch to validate `ORGANIZE_ALL_TABS` response shape and errors [`src/background/index.ts:L66-L179`, `tests/unit/background-message-handler.test.ts:L1-L141`] - **RESOLVED (2026-01-22):** Added 3 integration tests validating handleMessage response transformation with success flag.
 - [x] [AI-Review][MEDIUM] Story status mismatch: story header shows "in-progress" while sprint-status is "review"; align status fields [`docs/sprint-artifacts/2-3-bulk-organize-existing-tabs.md:L3`, `docs/sprint-artifacts/sprint-status.yaml:L48-L55`] - **RESOLVED (2026-01-22):** Updated story status to 'review'.
+
+### Review Follow-ups (AC Updates - 2026-02-12)
+
+- [x] [CRITICAL][AC4] Implement ungrouping for tabs that don't match any rules - **RESOLVED (2026-02-12)**
+  - Added logic to track tabs in groups that don't match current rules
+  - Calls `chrome.tabs.ungroup()` for these tabs to enforce strict ruleset
+  - Updated tests to verify ungrouping behavior
+  - Location: `src/background/modules/auto-group-manager.ts:L113-L216`
+
+- [x] [HIGH][AC7] Implement pinned tab filtering - **RESOLVED (2026-02-12)**
+  - Filters out pinned tabs before rule evaluation (`tab.pinned === true`)
+  - Pinned tabs are not counted in summary
+  - Added tests to verify pinned tabs remain unchanged
+  - Location: `src/background/modules/auto-group-manager.ts:L113-L216`
+
+- [x] [MEDIUM] Update unit tests for new AC4 behavior - **RESOLVED (2026-02-12)**
+  - Modified test: "Non-matching ungrouped tabs remain untouched"
+  - Added test: "Non-matching grouped tabs are ungrouped (AC4 strict enforcement)"
+  - Verifies `chrome.tabs.ungroup()` is called correctly
+  - Location: `tests/unit/bulk-organize.test.ts`
+
+- [x] [MEDIUM] Add unit test for AC7 pinned tab handling - **RESOLVED (2026-02-12)**
+  - Test that pinned tabs are skipped
+  - Test that pinned tabs don't affect summary counts
+  - Test mixed scenario: pinned + unpinned tabs
+  - Location: `tests/unit/bulk-organize.test.ts`
+
+- [x] [LOW] Update sprint status to reflect completion status - **RESOLVED (2026-02-12)**
+  - Updated `docs/sprint-artifacts/sprint-status.yaml` to 'review'
+  - Updated story status header to 'review'
+  - Location: `docs/sprint-artifacts/sprint-status.yaml`
+
 
 ### Review Follow-ups (AI) — Strict AC Compliance (2026-01-21)
 
@@ -198,7 +245,7 @@ Per [docs/technical/architecture.md](../technical/architecture.md):
 2. **Storage as Source of Truth** - Rules loaded from `chrome.storage.sync`
 3. **Reactive UI** - Popup triggers action via message, displays result
 4. **Pattern Engine** - Reuse same `RuleEngine.findFirstMatch()` from Story 2.2
-5. **Non-Destructive** - Tabs remain in groups if no longer matching (don't force ungroup)
+5. **Strict Enforcement** - Only tabs matching current rules remain grouped (enforces ruleset)
 
 **Module Architecture:**
 
@@ -280,6 +327,7 @@ interface Settings {
 |-----|---------|--------|
 | `chrome.tabs.query()` | Get all tabs across all windows | `chrome.tabs.query({})` |
 | `chrome.tabs.group()` | Add tabs to group (batch multiple tabIds) | `chrome.tabs.group({ tabIds: [1,2,3], groupId })` |
+| `chrome.tabs.ungroup()` | Remove tabs from groups (AC4) | `chrome.tabs.ungroup([tabId1, tabId2])` |
 | `chrome.tabGroups.query()` | Find existing groups by name and window | `chrome.tabGroups.query({ title: name, windowId })` |
 | `chrome.tabGroups.update()` | Set group name/color | `chrome.tabGroups.update(groupId, { title, color })` |
 | `chrome.runtime.onMessage` | Listen for ORGANIZE_ALL_TABS message | Event listener |
@@ -310,25 +358,42 @@ async function organizeAllTabs(): Promise<{ tabsOrganized: number; groupsCreated
     return { tabsOrganized: 0, groupsCreated: 0, errors: ['No enabled rules'] };
   }
   
-  // 3. Match each tab to a rule
+  // 3. Match each tab to a rule (skip pinned tabs per AC7)
   const tabGroupAssignments: Map<string, Tab[]> = new Map(); // key: "windowId-groupName"
   const groupColors: Map<string, TabGroupColor> = new Map();
+  const tabsToUngroup: number[] = []; // AC4: tabs that don't match any rules
   
   for (const tab of allTabs) {
     if (!tab.url || !tab.id) continue;
+    if (tab.pinned) continue; // AC7: skip pinned tabs
     
     const matchingRule = ruleEngine.findFirstMatch(tab.url, enabledRules);
-    if (!matchingRule) continue;
     
-    const key = `${tab.windowId}-${matchingRule.groupName}`;
-    if (!tabGroupAssignments.has(key)) {
-      tabGroupAssignments.set(key, []);
-      groupColors.set(key, matchingRule.groupColor);
+    if (matchingRule) {
+      // Tab matches a rule - add to group
+      const key = `${tab.windowId}-${matchingRule.groupName}`;
+      if (!tabGroupAssignments.has(key)) {
+        tabGroupAssignments.set(key, []);
+        groupColors.set(key, matchingRule.groupColor);
+      }
+      tabGroupAssignments.get(key)!.push(tab);
+    } else if (tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      // AC4: Tab doesn't match and is currently grouped - ungroup it
+      tabsToUngroup.push(tab.id);
     }
-    tabGroupAssignments.get(key)!.push(tab);
+    // Else: tab doesn't match and is already ungrouped - leave it
   }
   
-  // 4. Group tabs (window-aware)
+  // 4. Ungroup tabs that don't match any rules (AC4)
+  if (tabsToUngroup.length > 0) {
+    try {
+      await chrome.tabs.ungroup(tabsToUngroup);
+    } catch (error) {
+      console.error(`[organizeAllTabs] Failed to ungroup tabs:`, error);
+    }
+  }
+  
+  // 5. Group tabs (window-aware)
   let tabsOrganized = 0;
   let groupsCreated = 0;
   const errors: string[] = [];
@@ -536,11 +601,26 @@ describe('AutoGroupManager.organizeAllTabs', () => {
     // Assert: 2 separate groups created (one per window)
   });
 
-  it('should leave non-matching tabs untouched', async () => {
-    // Setup: 3 GitHub tabs (match), 2 Reddit tabs (no match)
+  it('should leave non-matching ungrouped tabs untouched', async () => {
+    // Setup: 3 GitHub tabs (match), 2 ungrouped Reddit tabs (no match)
     // Act: organizeAllTabs()
     // Assert: Only 3 tabs organized
-    // Assert: Reddit tabs unchanged
+    // Assert: Reddit tabs remain ungrouped
+  });
+
+  it('should ungroup tabs that no longer match any rules (AC4)', async () => {
+    // Setup: 3 GitHub tabs (match), 2 Reddit tabs in group (no match)
+    // Act: organizeAllTabs()
+    // Assert: chrome.tabs.ungroup called with Reddit tab IDs
+    // Assert: GitHub tabs grouped, Reddit tabs ungrouped
+  });
+
+  it('should skip pinned tabs and leave them pinned (AC7)', async () => {
+    // Setup: 2 pinned GitHub tabs, 2 unpinned GitHub tabs
+    // Act: organizeAllTabs()
+    // Assert: Only unpinned tabs grouped
+    // Assert: Pinned tabs remain pinned and ungrouped
+    // Assert: tabsOrganized = 2 (excludes pinned)
   });
 
   it('should handle errors gracefully and continue', async () => {
@@ -757,12 +837,13 @@ Analysis of recent implementation patterns:
 
 1. **No Rules Defined**: Return early with zero counts, show helpful message in popup
 2. **All Rules Disabled**: Same as no rules
-3. **Pinned Tabs**: Can't be grouped - skip silently or track in errors
+3. **Pinned Tabs**: Can't be grouped per AC7 - skip silently, don't count in summary
 4. **Empty Windows**: Handle windows with no tabs gracefully
 5. **Tab Without URL**: Skip tabs without URL (e.g., chrome:// pages, loading tabs)
 6. **Group Name Collision**: Use existing group if name matches (already handled by findGroupByName)
 7. **Concurrent Operations**: User clicks "Organize All Tabs" multiple times - debounce or disable button during operation
 8. **Rule Changes During Operation**: Use snapshot of rules at start, don't reload mid-operation
+9. **Grouped Tabs with No Matching Rule**: AC4 - ungroup these tabs strictly
 
 ### Success Criteria
 
@@ -849,6 +930,112 @@ Addressed all outstanding QA action items from code review:
 
 All QA follow-up action items complete. Story ready for deployment.
 
+### 2026-02-12 - AC Update (Chris via Bob - Scrum Master)
+
+**Changes to Acceptance Criteria:**
+- **AC4 Modified:** Changed non-matching grouped tab behavior from "preserve manual groupings" to "strictly ungroup tabs that don't match current rules"
+  - Previous: Tabs in groups without matching rules remained in their groups (non-destructive)
+  - New: Tabs in groups without matching rules are ungrouped (strict enforcement)
+  - Rationale: User wants tab groups to remain explicitly organized according to current ruleset only
+  
+- **AC7 Added:** Pinned tab handling
+  - Pinned tabs are never grouped (Chrome API restriction)
+  - Pinned tabs are skipped during organization and remain pinned
+  - Not counted in "tabs organized" summary
+  - No error message for skipped pinned tabs (expected behavior)
+
+**Implementation Impact:**
+- Story status reverted to "in-progress" (requires code changes)
+- Algorithm must now call `chrome.tabs.ungroup()` for tabs that don't match rules
+- Must filter out pinned tabs before processing
+- Tests must be updated to verify ungrouping behavior and pinned tab skipping
+- Dev notes updated to reflect strict enforcement principle
+
+### 2026-02-12 - AC4/AC7 Implementation Complete (Amelia)
+
+Implemented updated AC4 (strict ungrouping) and new AC7 (pinned tab filtering):
+
+**Implementation:**
+- ✅ Added pinned tab filtering in `organizeAllTabs()` - skips tabs where `tab.pinned === true`
+- ✅ Implemented ungrouping logic for grouped tabs that don't match any rules
+- ✅ Calls `chrome.tabs.ungroup()` to enforce strict ruleset (AC4)
+- ✅ Pinned tabs excluded from all processing and summary counts (AC7)
+
+**Tests Added:**
+- ✅ Updated test: "Non-matching ungrouped tabs remain untouched" (AC4)
+- ✅ New test: "Ungroup non-matching grouped tabs" (AC4 strict enforcement)
+- ✅ New test: "Skip pinned tabs and leave them pinned" (AC7)
+- ✅ All 10 tests in bulk-organize.test.ts passing
+- ✅ All 110 tests in suite passing (no regressions)
+
+**Files Modified:**
+- `src/background/modules/auto-group-manager.ts` - AC4/AC7 implementation
+- `tests/unit/bulk-organize.test.ts` - Added chrome.tabs.ungroup mock, 3 updated/new tests
+
+Story ready for final review.
+
+### 2026-02-17 - Senior Code Review (Changes Requested)
+- Validated updated ACs and current implementation; issues remain in summary correctness and error reporting
+- Added AI Review follow-ups with proposed fixes and test updates
+
+### 2026-02-17 - Code Review Fixes Implemented (Amelia)
+Addressed all findings from senior code review:
+
+**HIGH Priority:**
+- ✅ Implemented `groupsAffected` tracking - now counts total unique groups touched (existing + new)
+- ✅ Fixed `tabsOrganized` count - now excludes tabs already in correct group (AC5 compliance)
+- ✅ Added user-friendly error mapping - `mapErrorToUserMessage()` method translates Chrome API errors
+- ✅ Surfaced ungroup failures - errors now appear in user-facing toast notifications
+
+**LOW Priority:**
+- ✅ Fixed multiline toast display - added `white-space: pre-line` to CSS
+
+**Files Modified:**
+- `src/background/modules/auto-group-manager.ts` - groupsAffected tracking, tab filtering, error mapping
+- `src/background/index.ts` - added groupsAffected to response
+- `src/shared/messaging.ts` - added groupsAffected field to ActionResponse interface
+- `src/popup/components/QuickActions.tsx` - updated UI to use groupsAffected
+- `src/popup/styles/popup.css` - added white-space: pre-line for multiline support
+- `tests/unit/quick-actions.test.tsx` - updated mock responses to include groupsAffected
+
+**Tests:**
+- ✅ All 110 tests passing (no regressions)
+- ✅ Verified AC5 compliance: groups affected count accurate
+- ✅ Verified AC5 compliance: tabs organized excludes no-ops
+- ✅ Verified AC6 compliance: user-friendly error messages
+
+Story ready for deployment.
+
+### 2026-02-17 - Final Review Follow-ups Addressed (Amelia)
+Addressed remaining review findings:
+
+**HIGH Priority:**
+- ✅ Implemented `tabsFailed` tracking - counts per-tab failures in both grouping and ungrouping operations
+- ✅ Updated UI to display "X tabs organized, Y failed" format when failures occur (AC5 compliance)
+
+**MEDIUM Priority:**
+- ✅ Extended `groupsAffected` to include groups impacted by ungrouping operations
+- ✅ Added `groupsToUngroup` Set to track which groups have tabs removed
+
+**LOW Priority:**
+- ✅ Added 5 comprehensive tests for partial-success scenarios and tabsFailed semantics
+
+**Files Modified:**
+- `src/background/modules/auto-group-manager.ts` - tabsFailed tracking, groupsToUngroup tracking
+- `src/shared/messaging.ts` - added tabsFailed field to ActionResponse
+- `src/background/index.ts` - included tabsFailed in response
+- `src/popup/components/QuickActions.tsx` - updated UI for "X tabs organized, Y failed" format
+- `tests/unit/bulk-organize.test.ts` - added 3 new tests for tabsFailed and groupsAffected
+- `tests/unit/quick-actions.test.tsx` - added 2 new tests for partial-success UI display
+
+**Tests:**
+- ✅ All 115 tests passing (5 new tests added)
+- ✅ Verified AC5 compliance: tabsFailed count accurate
+- ✅ Verified AC5 compliance: groupsAffected includes ungrouped groups
+- ✅ Verified AC5 compliance: UI displays proper partial-success format
+
+Story ready for deployment.
+
 ---
 
 ## References
@@ -928,7 +1115,10 @@ Implementation completed by Dev Agent (Amelia) on 2026-01-15 following TDD red-g
 - `src/background/modules/auto-group-manager.ts` - Added organizeAllTabs() method
 - `src/background/index.ts` - Implemented ORGANIZE_ALL_TABS message handler
 - `src/popup/components/QuickActions.tsx` - Updated to show organization summary
-- `src/shared/messaging.ts` - Extended ActionResponse type with groupsCreated and errors fields
+- `src/shared/messaging.ts` - Extended ActionResponse with groupsAffected/tabsFailed
+- `src/popup/styles/popup.css` - Toast multiline support for summary warnings
+- `tests/unit/bulk-organize.test.ts` - Added tabsFailed/groupsAffected coverage
+- `tests/unit/quick-actions.test.tsx` - Added partial-success UI coverage
 
 ---
 
@@ -945,3 +1135,37 @@ Implementation completed by Dev Agent (Amelia) on 2026-01-15 following TDD red-g
 - Tests focus on `AutoGroupManager.organizeAllTabs()` but do not cover popup UX requirements.
 
 **Notes:** Git working tree was clean at review time, so validation was performed against current workspace files rather than diffs.
+
+---
+
+**Reviewer:** Chris (via BMAD code-review workflow)  
+**Date:** 2026-02-17  
+**Outcome:** Changes Requested
+
+**Key Findings (summary):**
+- AC5 groups affected count uses `groupsCreated` only; should include existing groups, and count should be per-window when feasible.
+- AC5 tabs organized count includes tabs already in the correct group; should exclude no-op tabs from summary counts.
+- AC6 error reporting is not user-friendly/actionable; raw Chrome API errors are surfaced directly.
+- AC6 partial failures during ungroup are logged but not surfaced to user.
+- AC5 partial-success format missing "X tabs organized, Y failed" count and does not show both summary + failure count.
+- Toast warning uses `\n` but CSS does not preserve line breaks, so warning may render as a single line.
+
+**Proposed Fixes:**
+1. Track `groupsAffected` separately from `groupsCreated`, counting per windowId (e.g., `Map<windowId-groupId>`), and return it in `ActionResponse`.
+2. Track `tabsOrganized` as tabs that actually change group (or are newly grouped), not tabs already in target group; compare tab.groupId to target groupId before increment.
+3. Normalize errors in background: map known Chrome error messages to friendly guidance, and pass `errors` as user-facing strings.
+4. Include ungroup failures in `errors` and in failed tab count; define `tabsFailed` for UI summary.
+5. Update popup toast to show: "X tabs organized, Y failed" plus error details when `errors` present.
+6. Update toast rendering to preserve line breaks (e.g., `white-space: pre-line`) or split summary and warning into separate elements.
+
+**Suggested Tests:**
+- AutoGroupManager: excludes already-correctly-grouped tabs from `tabsOrganized`.
+- AutoGroupManager: `groupsAffected` counts existing + created per window.
+- AutoGroupManager: ungroup failures contribute to `errors` and `tabsFailed`.
+- QuickActions: partial success shows "X tabs organized, Y failed" and warning details.
+- QuickActions: multiline toast rendering preserves line breaks (if using `\n`).
+
+**References:**
+- [src/background/modules/auto-group-manager.ts](src/background/modules/auto-group-manager.ts#L113-L228)
+- [src/popup/components/QuickActions.tsx](src/popup/components/QuickActions.tsx#L79-L105)
+- [src/popup/styles/popup.css](src/popup/styles/popup.css#L267-L313)

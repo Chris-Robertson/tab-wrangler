@@ -49,7 +49,7 @@ development_status:
   epic-2: in-progress
   2-1-define-grouping-rules: done
   2-2-auto-group-new-tabs: done
-  2-3-bulk-organize-existing-tabs: review
+  2-3-bulk-organize-existing-tabs: done
   epic-2-retrospective: optional
 
   # Epic 3: Auto-Close Tabs
