@@ -8,6 +8,7 @@
 import { StorageService } from './modules/storage-service';
 import { DuplicateDetector } from './modules/duplicate-detector';
 import { AutoGroupManager } from './modules/auto-group-manager';
+import { ActivityTracker } from './modules/activity-tracker';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
 import { isMessage } from '@shared/messaging';
 
@@ -15,6 +16,7 @@ import { isMessage } from '@shared/messaging';
 const storage = new StorageService();
 const duplicateDetector = new DuplicateDetector(storage);
 const autoGroupManager = new AutoGroupManager(storage);
+const activityTracker = new ActivityTracker(storage);
 
 /**
  * Extension installation handler
@@ -66,6 +68,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
  * Tab created handler
  */
 chrome.tabs.onCreated.addListener(async (tab) => {
+  // Track tab activity (AC4)
+  try {
+    await activityTracker.recordTabCreated(tab.id!, tab.url ?? '');
+  } catch (error) {
+    console.error('[Background] Failed to record tab creation activity:', error);
+  }
+
   // Auto-group if URL is available (AC1)
   if (tab.url) {
     try {
@@ -81,6 +90,13 @@ chrome.tabs.onCreated.addListener(async (tab) => {
  */
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.url) {
+    // Update activity URL without resetting timestamps (AC2 / Story 3.2 Task 2)
+    try {
+      await activityTracker.recordTabUrlUpdated(tabId, changeInfo.url);
+    } catch (error) {
+      console.error('[Background] Failed to update tab URL in activity tracker:', error);
+    }
+
     // Auto-group on URL change (AC1)
     try {
       await autoGroupManager.autoGroupTab(tabId, changeInfo.url, tab.windowId);
@@ -93,15 +109,27 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 /**
  * Tab activated handler (user switched to tab)
  */
-chrome.tabs.onActivated.addListener(async (_activeInfo) => {
-  // TODO: Update tab activity timestamp
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  // Update last-active timestamp (AC1, AC2, AC3)
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    await activityTracker.recordTabActivated(activeInfo.tabId, tab.url ?? '');
+  } catch (error) {
+    // Tab may have been closed between the event firing and the get() call — safe to ignore
+    console.warn('[Background] Tab not found during activation:', error);
+  }
 });
 
 /**
  * Tab removed handler
  */
-chrome.tabs.onRemoved.addListener(async (_tabId, _removeInfo) => {
-  // TODO: Clean up tab activity data
+chrome.tabs.onRemoved.addListener(async (tabId, _removeInfo) => {
+  // Clean up tab activity entry (AC6)
+  try {
+    await activityTracker.recordTabRemoved(tabId);
+  } catch (error) {
+    console.error('[Background] Failed to clean up tab activity on remove:', error);
+  }
 });
 
 /**
