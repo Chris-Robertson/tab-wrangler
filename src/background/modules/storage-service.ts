@@ -101,7 +101,11 @@ export class StorageService {
 
   async getAutoCloseRules(): Promise<AutoCloseRule[]> {
     const result = await chrome.storage.sync.get(STORAGE_KEYS.sync.AUTO_CLOSE_RULES) as Record<string, AutoCloseRule[] | undefined>;
-    return result[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] ?? [];
+    const rules = result[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] ?? [];
+    return rules.map((rule) => ({
+      ...rule,
+      enabled: rule.enabled ?? true,
+    }));
   }
 
   async saveAutoCloseRules(rules: AutoCloseRule[]): Promise<void> {

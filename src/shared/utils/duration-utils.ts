@@ -8,6 +8,15 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const WEEK = 7 * DAY;
 
+/** Duration units for form inputs (AC7) */
+export type DurationUnit = 'minutes' | 'hours' | 'days';
+
+/** Parsed duration object (AC7) */
+export interface ParsedDuration {
+  value: number;
+  unit: DurationUnit;
+}
+
 /**
  * Format a duration in milliseconds to a human-readable string
  */
@@ -96,5 +105,49 @@ export function formatRelativeTime(timestamp: number): string {
   }
   const days = Math.floor(diff / DAY);
   return `${days} day${days !== 1 ? 's' : ''} ago`;
+}
+
+/**
+ * Parse duration from value and unit to milliseconds (AC7)
+ * Used in rule editor forms where user enters numeric value + unit selector
+ */
+export function parseDurationFromValue(value: number, unit: DurationUnit): number {
+  switch (unit) {
+    case 'minutes':
+      return value * MINUTE;
+    case 'hours':
+      return value * HOUR;
+    case 'days':
+      return value * DAY;
+  }
+}
+
+/**
+ * Format milliseconds to structured duration object with value and unit (AC7)
+ * Chooses most appropriate unit for display
+ */
+export function formatDurationToObject(milliseconds: number): ParsedDuration {
+  const minutes = milliseconds / MINUTE;
+  const hours = milliseconds / HOUR;
+  const days = milliseconds / DAY;
+
+  // Choose most appropriate unit (prefer whole numbers)
+  if (days >= 1 && Number.isInteger(days)) {
+    return { value: days, unit: 'days' };
+  } else if (hours >= 1 && Number.isInteger(hours)) {
+    return { value: hours, unit: 'hours' };
+  } else {
+    return { value: Math.round(minutes), unit: 'minutes' };
+  }
+}
+
+/**
+ * Format milliseconds to display string with unit (AC7)
+ * Example: 7200000 → "2 hours"
+ */
+export function formatDurationDisplay(milliseconds: number): string {
+  const { value, unit } = formatDurationToObject(milliseconds);
+  const unitLabel = value === 1 ? unit.slice(0, -1) : unit; // Remove 's' for singular
+  return `${value} ${unitLabel}`;
 }
 

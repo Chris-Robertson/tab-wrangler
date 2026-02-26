@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StorageService } from '../../src/background/modules/storage-service';
-import type { GroupingRule } from '@shared/types';
+import type { GroupingRule, AutoCloseRule } from '@shared/types';
 
 // Mock chrome.storage API
 const mockStorage = {
@@ -94,6 +94,69 @@ describe('StorageService', () => {
       const rules = await storageService.getGroupingRules();
 
       expect(rules[0].enabled).toBe(true);
+    });
+  });
+
+  describe('getAutoCloseRules', () => {
+    it('should normalize missing enabled field to true (AC8 - default enabled)', async () => {
+      // Setup: Mock storage with rules missing enabled field
+      const storedRules: Partial<AutoCloseRule>[] = [
+        {
+          id: '1',
+          pattern: '*.reddit.com/*',
+          patternType: 'glob',
+          maxAge: 7200000, // 2 hours
+          // enabled field is missing
+        },
+        {
+          id: '2',
+          pattern: '*.twitter.com/*',
+          patternType: 'glob',
+          maxAge: 3600000, // 1 hour
+          enabled: false, // Explicitly disabled
+        },
+      ];
+
+      mockStorage.sync.get.mockResolvedValue({
+        autoCloseRules: storedRules,
+      });
+
+      // Act
+      const rules = await storageService.getAutoCloseRules();
+
+      // Assert: Missing enabled should be normalized to true
+      expect(rules).toHaveLength(2);
+      expect(rules[0].enabled).toBe(true); // Missing enabled → true
+      expect(rules[1].enabled).toBe(false); // Explicit false preserved
+    });
+
+    it('should return empty array when no rules exist', async () => {
+      mockStorage.sync.get.mockResolvedValue({});
+
+      const rules = await storageService.getAutoCloseRules();
+
+      expect(rules).toEqual([]);
+    });
+
+    it('should preserve explicitly enabled rules', async () => {
+      const storedRules: AutoCloseRule[] = [
+        {
+          id: '1',
+          pattern: '*.github.com/*',
+          patternType: 'glob',
+          maxAge: 86400000, // 1 day
+          enabled: true, // Explicitly enabled
+        },
+      ];
+
+      mockStorage.sync.get.mockResolvedValue({
+        autoCloseRules: storedRules,
+      });
+
+      const rules = await storageService.getAutoCloseRules();
+
+      expect(rules[0].enabled).toBe(true);
+      expect(rules[0].maxAge).toBe(86400000);
     });
   });
 });

@@ -1,9 +1,12 @@
 import { useState } from 'preact/hooks';
 import { useSettings } from './hooks/useSettings';
 import { useGroupingRules, type NewRuleInput } from './hooks/useGroupingRules';
+import { useAutoCloseRules, type NewAutoCloseRuleInput } from './hooks/useAutoCloseRules';
 import { GroupingRuleList } from './components/GroupingRuleList';
 import { RuleEditor } from './components/RuleEditor';
-import type { DuplicateDetectionMode, SortOrder, GroupingRule } from '../shared/types/rules';
+import { AutoCloseRuleEditor } from './components/AutoCloseRuleEditor';
+import { AutoCloseRuleList } from './components/AutoCloseRuleList';
+import type { DuplicateDetectionMode, SortOrder, GroupingRule, AutoCloseRule } from '../shared/types/rules';
 
 type Tab = 'grouping' | 'autoclose' | 'settings';
 
@@ -130,24 +133,96 @@ function GroupingRulesTab() {
 }
 
 function AutoCloseRulesTab() {
+  const { rules, loading, addRule, updateRule, deleteRule, toggleEnabled } = useAutoCloseRules();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<AutoCloseRule | undefined>(undefined);
+  const [initialUrl, setInitialUrl] = useState<string | undefined>(undefined);
+
+  const handleAddClick = async () => {
+    setEditingRule(undefined);
+    
+    // AC3: Query current active tab URL to auto-populate pattern
+    try {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.url) {
+        setInitialUrl(activeTab.url);
+      }
+    } catch (error) {
+      console.error('Failed to get active tab URL:', error);
+      setInitialUrl(undefined);
+    }
+    
+    setEditorOpen(true);
+  };
+
+  const handleEditClick = (rule: AutoCloseRule) => {
+    setEditingRule(rule);
+    setInitialUrl(undefined);
+    setEditorOpen(true);
+  };
+
+  const handleSave = async (ruleData: NewAutoCloseRuleInput) => {
+    if (editingRule) {
+      await updateRule(editingRule.id, ruleData);
+    } else {
+      await addRule(ruleData);
+    }
+    setEditorOpen(false);
+    setEditingRule(undefined);
+    setInitialUrl(undefined);
+  };
+
+  const handleCancel = () => {
+    setEditorOpen(false);
+    setEditingRule(undefined);
+    setInitialUrl(undefined);
+  };
+
+  if (loading) {
+    return (
+      <section class="tab-content">
+        <div class="section-header">
+          <h2>Auto-Close Rules</h2>
+          <p>Define URL patterns and durations to automatically close stale tabs.</p>
+        </div>
+        <div class="loading-state">
+          <div class="loading-spinner" />
+          <span>Loading rules...</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section class="tab-content">
       <div class="section-header">
         <h2>Auto-Close Rules</h2>
         <p>
-          Define URL patterns and durations to automatically close stale tabs.
+          Automatically close tabs matching these patterns after they've been inactive for the specified duration.
         </p>
       </div>
 
-      <div class="subsection">
-        <h3>Close Rules</h3>
-        <div class="placeholder">
-          <p>Auto-close rule editor coming soon!</p>
-        </div>
-        <button class="primary-button">Add Close Rule</button>
-      </div>
+      <AutoCloseRuleList
+        rules={rules}
+        onEdit={handleEditClick}
+        onDelete={deleteRule}
+        onToggleEnabled={toggleEnabled}
+      />
 
-      <div class="subsection">
+      <button class="primary-button" onClick={handleAddClick} style={{ marginTop: 'var(--spacing-md)' }}>
+        Add Rule
+      </button>
+
+      {editorOpen && (
+        <AutoCloseRuleEditor
+          rule={editingRule}
+          initialUrl={initialUrl}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      )}
+
+      <div class="subsection" style={{ marginTop: 'var(--spacing-xl)' }}>
         <h3>Whitelist (Never Close)</h3>
         <div class="placeholder">
           <p>Whitelist rule editor coming soon!</p>

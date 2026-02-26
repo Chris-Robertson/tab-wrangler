@@ -680,3 +680,271 @@ body {
   border-color: color-mix(in srgb, var(--color-error) 85%, white);
 }
 
+/* ===== Auto-Close Rule Styles (AC7) ===== */
+
+/* Duration Input Group */
+.duration-input-group {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.duration-value-input {
+  flex: 1;
+  min-width: 80px;
+}
+
+.duration-unit-select,
+.form-select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.duration-unit-select:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Duration Presets */
+.duration-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.preset-button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-button:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+/* Rule Item (Auto-Close specific) */
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  transition: all 0.15s ease;
+}
+
+.rule-item:hover {
+  border-color: var(--color-primary);
+}
+
+.rule-item.disabled {
+  opacity: 0.5;
+}
+
+.rule-item.disabled .rule-pattern {
+  text-decoration: line-through;
+}
+
+/* Pattern Badge */
+.pattern-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--spacing-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-left: var(--spacing-xs);
+}
+
+.pattern-badge.glob {
+  background: rgba(122, 162, 247, 0.2);
+  color: var(--color-primary);
+}
+
+.pattern-badge.regex {
+  background: rgba(187, 154, 247, 0.2);
+  color: #bb9af7;
+}
+
+.pattern-text {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.rule-details {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-top: var(--spacing-xs);
+}
+
+.rule-duration {
+  font-weight: 500;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-switch input[type='checkbox'] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  transition: all 0.2s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 2px;
+  top: 2px;
+  background: var(--color-text-dim);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background: var(--color-bg);
+}
+
+.toggle-switch:hover .toggle-slider {
+  border-color: var(--color-primary);
+}
+
+/* Icon Buttons */
+.icon-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s ease;
+}
+
+.icon-button:hover {
+  background: var(--color-surface-2);
+}
+
+.delete-button:hover {
+  border-color: var(--color-error);
+  background: rgba(247, 118, 142, 0.1);
+}
+
+.edit-button:hover {
+  border-color: var(--color-primary);
+  background: rgba(122, 162, 247, 0.1);
+}
+
+/* Delete Confirmation Overlay */
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  animation: fadeIn 0.15s ease;
+}
+
+.delete-confirm-dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.delete-confirm-dialog h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-error);
+  margin-bottom: var(--spacing-md);
+}
+
+.delete-confirm-dialog p {
+  font-size: 14px;
+  color: var(--color-text-dim);
+  margin-bottom: var(--spacing-md);
+}
+
+.rule-preview {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-2);
+  border-radius: var(--radius);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text);
+}
+
+.rule-preview strong {
+  color: var(--color-text);
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.danger-button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-error);
+  color: white;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.danger-button:hover {
+  background: color-mix(in srgb, var(--color-error) 85%, white);
+  border-color: color-mix(in srgb, var(--color-error) 85%, white);
+}
+
+
