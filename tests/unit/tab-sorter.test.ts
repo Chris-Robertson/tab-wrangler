@@ -231,4 +231,111 @@ describe('TabSorter', () => {
       expect(mockTabs.move).not.toHaveBeenCalled();
     });
   });
+
+  describe('sortByDomain(preserveGroups = true) — group-aware (AC1–AC3, Story 6.5)', () => {
+    it('ungrouped tabs appear before grouped tabs in final window order (AC3)', async () => {
+      // ungrouped: reddit.com (idx 0)
+      // grouped (group 42): apple.com (idx 1), github.com (idx 2)
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1, { groupId: 42 }),
+        makeTab(3, 'https://github.com', 2, { groupId: 42 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      await sorter.sortByDomain(true);
+
+      // Sorted: ungrouped(reddit) at 0, then group 42: apple(1), github(2)
+      // reddit.com already at index 0 — no move
+      // apple.com already at index 1 — no move
+      // github.com already at index 2 — no move
+      expect(mockTabs.move).not.toHaveBeenCalled();
+    });
+
+    it('ungrouped tabs are sorted by domain and placed before all grouped tabs', async () => {
+      // ungrouped: reddit (idx 0), apple (idx 1)
+      // grouped (group 7): github (idx 2)
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2, { groupId: 7 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      await sorter.sortByDomain(true);
+
+      // Expected final order: apple(2) idx 0, reddit(1) idx 1, github(3) idx 2
+      // apple moves from 1 → 0; reddit moves from 0 → 1; github already at 2
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+      expect(mockTabs.move).not.toHaveBeenCalledWith(3, expect.anything());
+    });
+
+    it('sorts tabs within a group internally by domain (AC1)', async () => {
+      // Two ungrouped tabs already sorted; group 10 has github before apple (wrong order)
+      const tabs = [
+        makeTab(1, 'https://amazon.com', 0),
+        makeTab(2, 'https://github.com', 1, { groupId: 10 }),
+        makeTab(3, 'https://apple.com', 2, { groupId: 10 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      await sorter.sortByDomain(true);
+
+      // Expected: ungrouped amazon(1) at 0; group 10 sorted: apple(3) at 1, github(2) at 2
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 2 });
+    });
+
+    it('sorts groups relative to each other by first tab domain key (AC2)', async () => {
+      // Group 10: reddit.com; Group 20: apple.com
+      // Group 20 should come first alphabetically
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { groupId: 10 }),
+        makeTab(2, 'https://apple.com', 1, { groupId: 20 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      await sorter.sortByDomain(true);
+
+      // Expected: apple(2) at idx 0, reddit(1) at idx 1
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('move error in group-aware sort does not abort remaining moves (AC7)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { groupId: 10 }),
+        makeTab(2, 'https://apple.com', 1, { groupId: 20 }),
+        makeTab(3, 'https://github.com', 2, { groupId: 20 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      // First move call fails
+      mockTabs.move
+        .mockRejectedValueOnce(new Error('Group constraint'))
+        .mockResolvedValue({});
+
+      const result = await sorter.sortByDomain(true);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      // Remaining moves still attempted
+      expect(mockTabs.move.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('preserveGroups = false (default) still performs flat sort (AC4)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { groupId: 10 }),
+        makeTab(2, 'https://apple.com', 1, { groupId: 20 }),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      // Passing false explicitly — flat sort: apple before reddit regardless of groups
+      await sorter.sortByDomain(false);
+
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+  });
 });

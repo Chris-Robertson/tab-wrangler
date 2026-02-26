@@ -68,7 +68,7 @@ development_status:
   6-2-sort-tabs-by-url: backlog
   6-3-sort-tabs-by-title: backlog
   6-4-sort-tabs-by-age: backlog
-  6-5-preserve-tab-groups-when-sorting: backlog
+  6-5-preserve-tab-groups-when-sorting: done
   epic-6-retrospective: optional
 
   # Epic 4: Extension UI

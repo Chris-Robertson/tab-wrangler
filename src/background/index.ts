@@ -206,9 +206,10 @@ async function handleMessage(message: unknown): Promise<unknown> {
     }
 
     case 'SORT_TABS': {
+      const settings = await storage.getSettings();
       switch (message.sortOrder) {
         case 'domain': {
-          const result = await tabSorter.sortByDomain();
+          const result = await tabSorter.sortByDomain(settings.sortPreserveGroups);
           if (!result.success) {
             // AC8: return { success: false, message } on failure
             return { success: false, message: result.errors.join('; ') };
