@@ -2,13 +2,16 @@ import { useState } from 'preact/hooks';
 import { useSettings } from './hooks/useSettings';
 import { useGroupingRules, type NewRuleInput } from './hooks/useGroupingRules';
 import { useAutoCloseRules, type NewAutoCloseRuleInput } from './hooks/useAutoCloseRules';
+import { useWhitelistRules, type NewWhitelistRuleInput } from './hooks/useWhitelistRules';
 import { GroupingRuleList } from './components/GroupingRuleList';
 import { RuleEditor } from './components/RuleEditor';
 import { AutoCloseRuleEditor } from './components/AutoCloseRuleEditor';
 import { AutoCloseRuleList } from './components/AutoCloseRuleList';
-import type { DuplicateDetectionMode, SortOrder, GroupingRule, AutoCloseRule } from '../shared/types/rules';
+import { WhitelistRuleEditor } from './components/WhitelistRuleEditor';
+import { WhitelistRuleList } from './components/WhitelistRuleList';
+import type { DuplicateDetectionMode, SortOrder, GroupingRule, AutoCloseRule, WhitelistRule } from '../shared/types/rules';
 
-type Tab = 'grouping' | 'autoclose' | 'settings';
+type Tab = 'grouping' | 'autoclose' | 'whitelist' | 'settings';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('grouping');
@@ -34,6 +37,12 @@ export function App() {
           Auto-Close Rules
         </button>
         <button
+          class={`tab ${activeTab === 'whitelist' ? 'active' : ''}`}
+          onClick={() => setActiveTab('whitelist')}
+        >
+          Whitelist
+        </button>
+        <button
           class={`tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
@@ -44,6 +53,7 @@ export function App() {
       <main class="content">
         {activeTab === 'grouping' && <GroupingRulesTab />}
         {activeTab === 'autoclose' && <AutoCloseRulesTab />}
+        {activeTab === 'whitelist' && <WhitelistRulesTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </main>
 
@@ -252,6 +262,130 @@ function AutoCloseRulesTab() {
         />
       )}
 
+    </section>
+  );
+}
+
+function WhitelistRulesTab() {
+  const { rules, loading, addRule, updateRule, deleteRule, toggleEnabled, reorderRules } =
+    useWhitelistRules();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<WhitelistRule | undefined>(undefined);
+  const [initialUrl, setInitialUrl] = useState<string | undefined>(undefined);
+  const [storageError, setStorageError] = useState<string | null>(null);
+
+  const handleAddClick = async () => {
+    setEditingRule(undefined);
+
+    // AC3: Query current active tab URL to auto-populate pattern
+    try {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.url) {
+        setInitialUrl(activeTab.url);
+      }
+    } catch (error) {
+      console.error('Failed to get active tab URL:', error);
+      setInitialUrl(undefined);
+    }
+
+    setEditorOpen(true);
+  };
+
+  const handleEditClick = (rule: WhitelistRule) => {
+    setEditingRule(rule);
+    setInitialUrl(undefined);
+    setEditorOpen(true);
+  };
+
+  const handleSave = async (ruleData: NewWhitelistRuleInput) => {
+    setStorageError(null);
+    try {
+      if (editingRule) {
+        await updateRule(editingRule.id, ruleData);
+      } else {
+        await addRule(ruleData);
+      }
+      setEditorOpen(false);
+      setEditingRule(undefined);
+      setInitialUrl(undefined);
+    } catch (error) {
+      console.error('[WhitelistRulesTab] Save failed:', error);
+      if (
+        error instanceof Error &&
+        (error.message.toLowerCase().includes('quota') ||
+          error.message.toLowerCase().includes('quota_bytes'))
+      ) {
+        setStorageError('Storage limit reached. Delete some rules to free up space.');
+      } else {
+        setStorageError('Failed to save rule. Please try again.');
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setEditorOpen(false);
+    setEditingRule(undefined);
+    setInitialUrl(undefined);
+  };
+
+  if (loading) {
+    return (
+      <section class="tab-content">
+        <div class="section-header">
+          <h2>Whitelist</h2>
+          <p>Define URL patterns to protect tabs from being auto-closed.</p>
+        </div>
+        <div class="loading-state">
+          <div class="loading-spinner" />
+          <span>Loading rules...</span>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section class="tab-content">
+      <div class="section-header">
+        <h2>Whitelist</h2>
+        <p>
+          Tabs matching these patterns will never be automatically closed.
+        </p>
+      </div>
+
+      <WhitelistRuleList
+        rules={rules}
+        onEdit={handleEditClick}
+        onDelete={deleteRule}
+        onToggleEnabled={toggleEnabled}
+        onReorder={reorderRules}
+      />
+
+      {storageError && (
+        <div class="storage-error-banner" role="alert">
+          ⚠️ {storageError}
+          <button
+            type="button"
+            class="dismiss-button"
+            onClick={() => setStorageError(null)}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <button class="primary-button" onClick={handleAddClick} style={{ marginTop: 'var(--spacing-md)' }}>
+        Add Rule
+      </button>
+
+      {editorOpen && (
+        <WhitelistRuleEditor
+          rule={editingRule}
+          initialUrl={initialUrl}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      )}
     </section>
   );
 }

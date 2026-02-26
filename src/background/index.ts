@@ -9,6 +9,7 @@ import { StorageService } from './modules/storage-service';
 import { DuplicateDetector } from './modules/duplicate-detector';
 import { AutoGroupManager } from './modules/auto-group-manager';
 import { ActivityTracker } from './modules/activity-tracker';
+import { AutoCloseScheduler } from './modules/auto-close-scheduler';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
 import { isMessage } from '@shared/messaging';
 
@@ -17,6 +18,7 @@ const storage = new StorageService();
 const duplicateDetector = new DuplicateDetector(storage);
 const autoGroupManager = new AutoGroupManager(storage);
 const activityTracker = new ActivityTracker(storage);
+const autoCloseScheduler = new AutoCloseScheduler(storage, activityTracker);
 
 /**
  * Extension installation handler
@@ -60,7 +62,17 @@ async function setupAlarms(): Promise<void> {
  */
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_AUTO_CLOSE_CHECK) {
-    // TODO: Implement auto-close check
+    try {
+      const result = await autoCloseScheduler.runCheck();
+      if (result.closedCount > 0) {
+        console.log(`[Background] Auto-closed ${result.closedCount} stale tab(s)`);
+      }
+      if (result.errors.length > 0) {
+        console.warn('[Background] Auto-close errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('[Background] Auto-close check failed:', error);
+    }
   }
 });
 
