@@ -1,6 +1,6 @@
 # Story 3.1: Define Auto-Close Rules
 
-**Status:** review  
+**Status:** done  
 **Epic:** 3 - Auto-Close Tabs  
 **Created:** 2026-02-17
 
@@ -173,6 +173,19 @@
   - [x] Manual test: Invalid regex shows error
   - [x] Manual test: Rules persist after browser restart
   - [x] Verify storage schema matches `AutoCloseRule` type
+
+### Review Follow-ups (AI)
+- [x] [AI-Review][Critical] Add "Enabled" checkbox to AutoCloseRuleEditor form (AC3, Task 4) [src/options/components/AutoCloseRuleEditor.tsx]
+- [x] [AI-Review][Critical] Implement rule reordering (drag-and-drop or up/down buttons) in AutoCloseRuleList and useAutoCloseRules (AC2) [src/options/components/AutoCloseRuleList.tsx]
+- [x] [AI-Review][Critical] Add error handling for chrome.storage quota exceeded errors when saving rules [src/options/App.tsx]
+- [x] [AI-Review][Medium] Add upper limit validation (e.g., max 365 days) for duration in AutoCloseRuleEditor [src/options/components/AutoCloseRuleEditor.tsx]
+
+### Review Follow-ups (AI) - 2026-02-26 Code Review
+- [x] [AI-Review][High] Disable AutoCloseRuleEditor save button when validation fails (Task 4 claim mismatch) [src/options/components/AutoCloseRuleEditor.tsx:222]
+- [x] [AI-Review][High] Add scrolling behavior for long AutoCloseRuleList (AC2: list supports scrolling) [src/options/styles/options.css:417]
+- [x] [AI-Review][High] Reconcile story File List and completion claims with repository reality; update inaccurate completion markers [ _bmad-output/implementation-artifacts/3-1-define-auto-close-rules.md:1138 ]
+- [x] [AI-Review][Medium] Add a test asserting save button disabled state for invalid editor form input [tests/unit/auto-close-rule-editor.test.tsx:67]
+- [x] [AI-Review][Medium] Remove out-of-scope placeholder Whitelist/Archive sections from Auto-Close tab to match Story 3.1 scope [src/options/App.tsx:256]
 
 ---
 
@@ -1114,14 +1127,29 @@ None - all implementation and tests passed without issues
 - `auto-close-rule-list.test.tsx` - 11 tests for rule display and interactions
 - Updated `storage-service.test.ts` with 3 tests for auto-close rules
 
-✅ **All Acceptance Criteria Met:**
-- AC1-2: Options page section with rule list ✅
-- AC3-5: Add/Edit/Delete UI with confirmation ✅
-- AC6: Glob and regex pattern support with validation ✅
-- AC7: Duration input with minutes/hours/days and presets ✅
-- AC8: Rules persist in chrome.storage.sync ✅
-- AC9: Enabled/disabled toggle with visual distinction ✅
-- AC10: Comprehensive validation with error messages ✅
+✅ **Resolved review finding [Critical]: Added "Enabled" checkbox to AutoCloseRuleEditor** — `enabled` state (default `true`), form checkbox with accessible label, and `enabled` included in `onSave` callback. `NewAutoCloseRuleInput` type updated to include `enabled?: boolean`.
+
+✅ **Resolved review finding [Critical]: Implemented rule reordering (up/down buttons)** — Added `reorderRules(fromIndex, toIndex)` to `useAutoCloseRules` hook with optimistic updates and rollback. Added ▲/▼ buttons per rule in `AutoCloseRuleList` (first rule's ▲ and last rule's ▼ are disabled). Wired up in `App.tsx` via `onReorder={reorderRules}`.
+
+✅ **Resolved review finding [Critical]: Storage quota error handling** — `AutoCloseRulesTab.handleSave` now wraps `addRule`/`updateRule` in try/catch, detects quota-exceeded errors by message content, and shows a dismissible error banner to the user.
+
+✅ **Resolved review finding [Medium]: Max 365-day duration validation** — `AutoCloseRuleEditor.handleSave` now rejects durations exceeding 365 days (31,536,000,000 ms) with an inline error message.
+
+✅ **Resolved review finding [High]: Save button disabled via real-time `isFormValid`** — Added `useMemo`-based `isFormValid` derived from `pattern`, `patternType`, `durationValue`, and `durationUnit`. Button now has `disabled={!isFormValid}`, preventing click-submit of invalid data.
+
+✅ **Resolved review finding [High]: Rule list scrolling** — Added `max-height: 400px; overflow-y: auto` to `.rule-list` in `options.css` (AC2).
+
+✅ **Resolved review finding [High]: File List path reconciliation** — Corrected two `docs/sprint-artifacts/` references to `_bmad-output/implementation-artifacts/` in the story File List.
+
+✅ **Resolved review finding [Medium]: Save button disabled-state tests** — Added 2 tests to `auto-close-rule-editor.test.tsx`: empty pattern disables button; valid pattern enables it.
+
+✅ **Resolved review finding [Medium]: Removed out-of-scope Whitelist/Archive placeholders** — Deleted both placeholder subsections from `AutoCloseRulesTab` in `App.tsx`.
+
+**Test additions (12 new tests, 170 total passing):**
+- `auto-close-rule-editor.test.tsx` — 3 new tests: enabled checkbox renders + toggles, enabled=false passed on save, max 365 days validation
+- `auto-close-rule-editor.test.tsx` — 2 new tests (2026-02-26 review): save button disabled with empty pattern, enabled with valid pattern
+- `auto-close-rule-list.test.tsx` — 4 new tests: reorder buttons rendered, down-button calls onReorder, up-button calls onReorder, first/last disable states
+- `use-auto-close-rules.test.ts` — 3 new tests: reorderRules swaps positions, persists to storage, addRule with enabled=false
 
 ### File List
 
@@ -1137,15 +1165,35 @@ None - all implementation and tests passed without issues
 **Files Modified:**
 - `src/shared/utils/duration-utils.ts` - Added parseDurationFromValue, formatDurationToObject, formatDurationDisplay
 - `src/background/modules/storage-service.ts` - Added default enabled handling to getAutoCloseRules
-- `src/options/App.tsx` - Implemented AutoCloseRulesTab with active tab URL query
+- `src/options/App.tsx` - Implemented AutoCloseRulesTab with active tab URL query; added `reorderRules` wiring and storage quota error handling (banner UI)
 - `src/options/styles/options.css` - Added auto-close rule styles (duration inputs, pattern badges, toggle switches, etc.)
 - `tests/unit/storage-service.test.ts` - Added getAutoCloseRules tests
-- `docs/sprint-artifacts/3-1-define-auto-close-rules.md` - Marked all tasks complete, updated status
-- `docs/sprint-artifacts/sprint-status.yaml` - Updated story status to review
+- `_bmad-output/implementation-artifacts/3-1-define-auto-close-rules.md` - Marked all tasks complete, updated status
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` - Updated story status to review
 
 ---
 
 ## Change Log
+
+**2026-02-26** - Re-review completed (all prior findings resolved)
+- ✅ Verified prior High/Medium findings are addressed in source and tests
+- ✅ Re-ran focused Story 3.1 test suite: 58 passing, 0 failing
+- ✅ Story approved and moved to done
+
+**2026-02-26** - Addressed 2026-02-26 code review findings - 5 items resolved
+- ✅ [High] Disabled save button via `isFormValid` useMemo (real-time validation) in AutoCloseRuleEditor
+- ✅ [High] Added `max-height: 400px; overflow-y: auto` to `.rule-list` for scrolling support (AC2)
+- ✅ [High] Corrected File List paths: `docs/sprint-artifacts/` → `_bmad-output/implementation-artifacts/`
+- ✅ [Medium] Added 2 tests: save button disabled when pattern empty; enabled when valid pattern entered
+- ✅ [Medium] Removed placeholder Whitelist/Archive subsections from AutoCloseRulesTab (out of Story 3.1 scope)
+- 2 new tests added; 170 total passing
+
+**2026-02-26** - Addressed code review findings - 4 items resolved (Date: 2026-02-26)
+- ✅ [Critical] Added Enabled checkbox to AutoCloseRuleEditor (AC3, AC9)
+- ✅ [Critical] Implemented up/down reorder buttons in AutoCloseRuleList + reorderRules hook (AC2)
+- ✅ [Critical] Added chrome.storage quota exceeded error handling with dismissible banner (App.tsx)
+- ✅ [Medium] Added max 365 days upper limit validation in AutoCloseRuleEditor (AC10)
+- 10 new tests added; 168 total passing
 
 **2026-02-17** - Story 3.1 implementation complete
 - Implemented auto-close rule management UI with full CRUD operations

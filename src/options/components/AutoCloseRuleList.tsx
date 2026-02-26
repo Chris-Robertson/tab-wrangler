@@ -12,9 +12,10 @@ interface AutoCloseRuleListProps {
   onEdit: (rule: AutoCloseRule) => void;
   onDelete: (id: string) => void;
   onToggleEnabled: (id: string) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
 }
 
-export function AutoCloseRuleList({ rules, onEdit, onDelete, onToggleEnabled }: AutoCloseRuleListProps) {
+export function AutoCloseRuleList({ rules, onEdit, onDelete, onToggleEnabled, onReorder }: AutoCloseRuleListProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const handleDeleteClick = (rule: AutoCloseRule) => {
@@ -40,7 +41,7 @@ export function AutoCloseRuleList({ rules, onEdit, onDelete, onToggleEnabled }: 
 
   return (
     <div class="rule-list">
-      {rules.map((rule) => (
+      {rules.map((rule, index) => (
         <div
           key={rule.id}
           class={`rule-item ${!rule.enabled ? 'disabled' : ''}`}
@@ -62,6 +63,30 @@ export function AutoCloseRuleList({ rules, onEdit, onDelete, onToggleEnabled }: 
 
           {/* Actions */}
           <div class="rule-actions">
+            {/* Reorder Buttons */}
+            {onReorder && (
+              <div class="reorder-buttons">
+                <button
+                  type="button"
+                  class="icon-button reorder-up-btn"
+                  onClick={() => onReorder(index, index - 1)}
+                  disabled={index === 0}
+                  title="Move rule up"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  class="icon-button reorder-down-btn"
+                  onClick={() => onReorder(index, index + 1)}
+                  disabled={index === rules.length - 1}
+                  title="Move rule down"
+                >
+                  ▼
+                </button>
+              </div>
+            )}
+
             {/* Enabled Toggle */}
             <label class="toggle-switch" title={rule.enabled ? 'Disable rule' : 'Enable rule'}>
               <input

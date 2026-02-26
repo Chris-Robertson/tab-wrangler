@@ -3,7 +3,7 @@
  * Modal/form for adding or editing auto-close rules
  */
 
-import { useState } from 'preact/hooks';
+import { useState, useMemo } from 'preact/hooks';
 import type { AutoCloseRule, PatternType } from '../../shared/types';
 import { validatePattern } from '../../shared/utils/pattern-matcher';
 import {
@@ -19,10 +19,13 @@ interface AutoCloseRuleEditorProps {
   /** Initial URL to populate pattern field (AC3 - auto-populate from active tab) */
   initialUrl?: string;
   /** Callback when rule is saved */
-  onSave: (rule: { pattern: string; patternType: PatternType; maxAge: number }) => void;
+  onSave: (rule: { pattern: string; patternType: PatternType; maxAge: number; enabled: boolean }) => void;
   /** Callback when editor is cancelled/closed */
   onCancel: () => void;
 }
+
+/** Max duration: 365 days in milliseconds */
+const MAX_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
 
 export function AutoCloseRuleEditor({ rule, initialUrl, onSave, onCancel }: AutoCloseRuleEditorProps) {
   const [pattern, setPattern] = useState(rule?.pattern ?? initialUrl ?? '');
@@ -45,9 +48,19 @@ export function AutoCloseRuleEditor({ rule, initialUrl, onSave, onCancel }: Auto
     return 'hours';
   });
 
+  const [enabled, setEnabled] = useState(rule?.enabled ?? true);
+
   const [error, setError] = useState<string | null>(null);
 
   const isEditMode = !!rule;
+
+  /** Real-time validity — keeps Save button disabled until all fields are valid */
+  const isFormValid = useMemo(() => {
+    if (!pattern.trim()) return false;
+    if (!validatePattern(pattern, patternType).valid) return false;
+    if (!durationValue || durationValue <= 0) return false;
+    return parseDurationFromValue(durationValue, durationUnit) <= MAX_DURATION_MS;
+  }, [pattern, patternType, durationValue, durationUnit]);
 
   const handleSave = () => {
     // Clear any previous error
@@ -67,7 +80,14 @@ export function AutoCloseRuleEditor({ rule, initialUrl, onSave, onCancel }: Auto
     }
 
     const maxAge = parseDurationFromValue(durationValue, durationUnit);
-    onSave({ pattern, patternType, maxAge });
+
+    // Validate max duration (365 days)
+    if (maxAge > MAX_DURATION_MS) {
+      setError('Duration cannot exceed 365 days');
+      return;
+    }
+
+    onSave({ pattern, patternType, maxAge, enabled });
   };
 
   const handlePatternTypeChange = (newType: PatternType) => {
@@ -181,6 +201,19 @@ export function AutoCloseRuleEditor({ rule, initialUrl, onSave, onCancel }: Auto
             </div>
           </div>
 
+          {/* Enabled Toggle */}
+          <div class="form-group">
+            <label class="form-label form-label--inline" for="enabled-checkbox">
+              <input
+                id="enabled-checkbox"
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled((e.target as HTMLInputElement).checked)}
+              />
+              {' '}Enabled
+            </label>
+          </div>
+
           {/* Error Display */}
           {error && (
             <div class="form-error">
@@ -194,7 +227,7 @@ export function AutoCloseRuleEditor({ rule, initialUrl, onSave, onCancel }: Auto
           <button type="button" class="secondary-button" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" class="primary-button" onClick={handleSave}>
+          <button type="button" class="primary-button" onClick={handleSave} disabled={!isFormValid}>
             {isEditMode ? 'Save Changes' : 'Add Rule'}
           </button>
         </div>

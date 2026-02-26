@@ -248,6 +248,70 @@ describe('useAutoCloseRules', () => {
     });
   });
 
+  describe('reorderRules', () => {
+    it('should reorder rules by swapping positions (AC2)', async () => {
+      const storedRules: AutoCloseRule[] = [
+        { id: 'rule-1', pattern: '*.reddit.com/*', patternType: 'glob', maxAge: 7200000, enabled: true },
+        { id: 'rule-2', pattern: '*.twitter.com/*', patternType: 'glob', maxAge: 3600000, enabled: true },
+        { id: 'rule-3', pattern: '*.github.com/*', patternType: 'glob', maxAge: 1800000, enabled: true },
+      ];
+      mockStorage[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] = storedRules;
+
+      const { result } = renderHook(() => useAutoCloseRules());
+      await waitFor(() => { expect(result.current.loading).toBe(false); });
+
+      await act(async () => {
+        await result.current.reorderRules(0, 2);
+      });
+
+      expect(result.current.rules[0].id).toBe('rule-2');
+      expect(result.current.rules[1].id).toBe('rule-3');
+      expect(result.current.rules[2].id).toBe('rule-1');
+    });
+
+    it('should persist reordered rules to storage (AC2)', async () => {
+      const storedRules: AutoCloseRule[] = [
+        { id: 'rule-1', pattern: '*.reddit.com/*', patternType: 'glob', maxAge: 7200000, enabled: true },
+        { id: 'rule-2', pattern: '*.twitter.com/*', patternType: 'glob', maxAge: 3600000, enabled: true },
+      ];
+      mockStorage[STORAGE_KEYS.sync.AUTO_CLOSE_RULES] = storedRules;
+
+      const { result } = renderHook(() => useAutoCloseRules());
+      await waitFor(() => { expect(result.current.loading).toBe(false); });
+
+      await act(async () => {
+        await result.current.reorderRules(0, 1);
+      });
+
+      expect(chrome.storage.sync.set).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          [STORAGE_KEYS.sync.AUTO_CLOSE_RULES]: [
+            expect.objectContaining({ id: 'rule-2' }),
+            expect.objectContaining({ id: 'rule-1' }),
+          ],
+        })
+      );
+    });
+  });
+
+  describe('addRule with custom enabled', () => {
+    it('should add a rule with enabled=false when specified', async () => {
+      const { result } = renderHook(() => useAutoCloseRules());
+      await waitFor(() => { expect(result.current.loading).toBe(false); });
+
+      await act(async () => {
+        await result.current.addRule({
+          pattern: '*.reddit.com/*',
+          patternType: 'glob',
+          maxAge: 7200000,
+          enabled: false,
+        });
+      });
+
+      expect(result.current.rules[0].enabled).toBe(false);
+    });
+  });
+
   describe('toggleEnabled', () => {
     it('should toggle enabled status (AC9)', async () => {
       const storedRules: AutoCloseRule[] = [

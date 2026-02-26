@@ -59,6 +59,27 @@ describe('AutoCloseRuleEditor', () => {
     expect(getByText('Edit Auto-Close Rule')).toBeDefined();
   });
 
+  it('should have save button disabled when pattern is empty (AC3, AC10)', () => {
+    const { getByText } = render(
+      <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
+    );
+
+    const saveButton = getByText('Add Rule') as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+  });
+
+  it('should enable save button once a valid pattern is entered (AC3, AC10)', () => {
+    const { getByLabelText, getByText } = render(
+      <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
+    );
+
+    const patternInput = getByLabelText('URL Pattern') as HTMLInputElement;
+    fireEvent.input(patternInput, { target: { value: '*.reddit.com/*' } });
+
+    const saveButton = getByText('Add Rule') as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(false);
+  });
+
   it('should validate empty pattern and show error (AC10)', () => {
     const { getByLabelText, getByText } = render(
       <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
@@ -103,11 +124,13 @@ describe('AutoCloseRuleEditor', () => {
     const saveButton = getByText('Add Rule');
     fireEvent.click(saveButton);
 
-    expect(mockOnSave).toHaveBeenCalledWith({
-      pattern: '*.reddit.com/*',
-      patternType: 'glob',
-      maxAge: 7200000, // Default 2 hours
-    });
+    expect(mockOnSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: '*.reddit.com/*',
+        patternType: 'glob',
+        maxAge: 7200000, // Default 2 hours
+      })
+    );
   });
 
   it('should call onCancel when cancel button clicked', () => {
@@ -150,6 +173,74 @@ describe('AutoCloseRuleEditor', () => {
     fireEvent.click(saveButton);
 
     expect(getByText('Duration must be a positive number')).toBeDefined();
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('should save valid rule including enabled=true by default (AC9)', () => {
+    const { getByLabelText, getByText } = render(
+      <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
+    );
+
+    const patternInput = getByLabelText('URL Pattern') as HTMLInputElement;
+    fireEvent.input(patternInput, { target: { value: '*.reddit.com/*' } });
+
+    const saveButton = getByText('Add Rule');
+    fireEvent.click(saveButton);
+
+    expect(mockOnSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: '*.reddit.com/*',
+        patternType: 'glob',
+        maxAge: 7200000,
+        enabled: true,
+      })
+    );
+  });
+
+  it('should render Enabled checkbox and pass enabled=false when unchecked (AC9)', () => {
+    const { getByLabelText, getByText } = render(
+      <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
+    );
+
+    const enabledCheckbox = getByLabelText('Enabled') as HTMLInputElement;
+    expect(enabledCheckbox).toBeDefined();
+    expect(enabledCheckbox.checked).toBe(true);
+
+    // Uncheck it
+    fireEvent.change(enabledCheckbox, { target: { checked: false } });
+
+    // Fill in pattern and save
+    const patternInput = getByLabelText('URL Pattern') as HTMLInputElement;
+    fireEvent.input(patternInput, { target: { value: '*.test.com/*' } });
+
+    const saveButton = getByText('Add Rule');
+    fireEvent.click(saveButton);
+
+    expect(mockOnSave).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
+  it('should reject duration exceeding 365 days (AC10)', () => {
+    const { getByLabelText, getByText, container } = render(
+      <AutoCloseRuleEditor onSave={mockOnSave} onCancel={mockOnCancel} />
+    );
+
+    const patternInput = getByLabelText('URL Pattern') as HTMLInputElement;
+    fireEvent.input(patternInput, { target: { value: '*.test.com/*' } });
+
+    const durationInput = container.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.input(durationInput, { target: { value: '366' } });
+
+    // Set unit to days
+    const unitSelect = container.querySelector('.duration-unit-select') as HTMLSelectElement;
+    fireEvent.change(unitSelect, { target: { value: 'days' } });
+
+    const saveButton = getByText('Add Rule');
+    fireEvent.click(saveButton);
+
+    const errorText = document.body.textContent ?? '';
+    expect(errorText.toLowerCase()).toContain('365');
     expect(mockOnSave).not.toHaveBeenCalled();
   });
 });

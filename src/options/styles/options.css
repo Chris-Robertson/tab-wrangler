@@ -419,6 +419,8 @@ body {
   flex-direction: column;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .rule-card {

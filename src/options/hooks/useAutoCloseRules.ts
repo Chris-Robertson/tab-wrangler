@@ -13,6 +13,7 @@ export type NewAutoCloseRuleInput = {
   pattern: string;
   patternType: PatternType;
   maxAge: number; // milliseconds
+  enabled?: boolean; // defaults to true
 };
 
 interface UseAutoCloseRulesReturn {
@@ -22,6 +23,7 @@ interface UseAutoCloseRulesReturn {
   updateRule: (id: string, updates: Partial<AutoCloseRule>) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
   toggleEnabled: (id: string) => Promise<void>;
+  reorderRules: (fromIndex: number, toIndex: number) => Promise<void>;
 }
 
 /**
@@ -100,7 +102,7 @@ export function useAutoCloseRules(): UseAutoCloseRulesReturn {
     const tempRule: AutoCloseRule = {
       ...rule,
       id: generateId(),
-      enabled: true,
+      enabled: rule.enabled ?? true,
     };
     setRulesWithRef((current) => [...current, tempRule]);
 
@@ -110,7 +112,7 @@ export function useAutoCloseRules(): UseAutoCloseRulesReturn {
       const newRule: AutoCloseRule = {
         ...rule,
         id: tempRule.id,
-        enabled: true,
+        enabled: rule.enabled ?? true,
       };
       const updated = [...latestRules, newRule];
       await chrome.storage.sync.set({ [STORAGE_KEYS.sync.AUTO_CLOSE_RULES]: updated });
@@ -191,6 +193,35 @@ export function useAutoCloseRules(): UseAutoCloseRulesReturn {
     }
   }, [setRulesWithRef]);
 
+  const reorderRules = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
+    if (fromIndex === toIndex) return;
+
+    const previousState = rulesRef.current;
+    setRulesWithRef((current) => {
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+
+    try {
+      const latestRules = await getLatestRulesFromStorage();
+      const next = [...latestRules];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      await chrome.storage.sync.set({ [STORAGE_KEYS.sync.AUTO_CLOSE_RULES]: next });
+    } catch (error) {
+      console.error('[useAutoCloseRules] Failed to reorder rules:', error);
+      try {
+        const reverted = await getLatestRulesFromStorage();
+        setRulesWithRef(reverted);
+      } catch {
+        setRulesWithRef(previousState);
+      }
+      throw error;
+    }
+  }, [setRulesWithRef]);
+
   return {
     rules,
     loading,
@@ -198,5 +229,6 @@ export function useAutoCloseRules(): UseAutoCloseRulesReturn {
     updateRule,
     deleteRule,
     toggleEnabled,
+    reorderRules,
   };
 }

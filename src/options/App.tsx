@@ -133,10 +133,11 @@ function GroupingRulesTab() {
 }
 
 function AutoCloseRulesTab() {
-  const { rules, loading, addRule, updateRule, deleteRule, toggleEnabled } = useAutoCloseRules();
+  const { rules, loading, addRule, updateRule, deleteRule, toggleEnabled, reorderRules } = useAutoCloseRules();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutoCloseRule | undefined>(undefined);
   const [initialUrl, setInitialUrl] = useState<string | undefined>(undefined);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   const handleAddClick = async () => {
     setEditingRule(undefined);
@@ -162,14 +163,28 @@ function AutoCloseRulesTab() {
   };
 
   const handleSave = async (ruleData: NewAutoCloseRuleInput) => {
-    if (editingRule) {
-      await updateRule(editingRule.id, ruleData);
-    } else {
-      await addRule(ruleData);
+    setStorageError(null);
+    try {
+      if (editingRule) {
+        await updateRule(editingRule.id, ruleData);
+      } else {
+        await addRule(ruleData);
+      }
+      setEditorOpen(false);
+      setEditingRule(undefined);
+      setInitialUrl(undefined);
+    } catch (error) {
+      console.error('[AutoCloseRulesTab] Save failed:', error);
+      if (
+        error instanceof Error &&
+        (error.message.toLowerCase().includes('quota') ||
+          error.message.toLowerCase().includes('quota_bytes'))
+      ) {
+        setStorageError('Storage limit reached. Delete some rules to free up space.');
+      } else {
+        setStorageError('Failed to save rule. Please try again.');
+      }
     }
-    setEditorOpen(false);
-    setEditingRule(undefined);
-    setInitialUrl(undefined);
   };
 
   const handleCancel = () => {
@@ -207,7 +222,22 @@ function AutoCloseRulesTab() {
         onEdit={handleEditClick}
         onDelete={deleteRule}
         onToggleEnabled={toggleEnabled}
+        onReorder={reorderRules}
       />
+
+      {storageError && (
+        <div class="storage-error-banner" role="alert">
+          ⚠️ {storageError}
+          <button
+            type="button"
+            class="dismiss-button"
+            onClick={() => setStorageError(null)}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <button class="primary-button" onClick={handleAddClick} style={{ marginTop: 'var(--spacing-md)' }}>
         Add Rule
@@ -222,24 +252,6 @@ function AutoCloseRulesTab() {
         />
       )}
 
-      <div class="subsection" style={{ marginTop: 'var(--spacing-xl)' }}>
-        <h3>Whitelist (Never Close)</h3>
-        <div class="placeholder">
-          <p>Whitelist rule editor coming soon!</p>
-        </div>
-        <button class="secondary-button">Add Whitelist Rule</button>
-      </div>
-
-      <div class="subsection">
-        <h3>Archive Exclusions</h3>
-        <p class="hint">
-          URLs matching these patterns will NOT be bookmarked when auto-closed.
-        </p>
-        <div class="placeholder">
-          <p>Archive exclusion editor coming soon!</p>
-        </div>
-        <button class="secondary-button">Add Exclusion Rule</button>
-      </div>
     </section>
   );
 }
