@@ -9,13 +9,13 @@
 ## 📁 Documentation Structure
 
 ```
-docs/
-├── index.md                 # This file - documentation index
-├── product-brief.md         # Vision, goals, constraints
-├── user-stories.md          # Epics and user stories with acceptance criteria
-├── sprint-artifacts/        # Sprint-specific deliverables
-│   └── (sprint docs go here)
-└── technical/               # Technical documentation
+_bmad-output/planning-artifacts/
+└── implementation-artifacts/        # Implementation workflow output
+    └── (implementation docs go here)
+└── planning-artifacts/        # Sprint-specific deliverables
+    ├── index.md                 # This file - documentation index
+    ├── product-brief.md         # Vision, goals, constraints
+    ├── user-stories.md          # Epics and user stories with acceptance criteria
     └── architecture.md      # System design & data models
 ```
 
@@ -27,7 +27,7 @@ docs/
 |----------|-------------|--------|
 | [Product Brief](./product-brief.md) | Vision, target users, features, constraints | ✅ Complete |
 | [User Stories](./user-stories.md) | 6 Epics, 18 MVP stories with acceptance criteria | ✅ Complete |
-| [Architecture](./technical/architecture.md) | Tech stack, components, data models, file structure | ✅ Complete |
+| [Architecture](./architecture.md) | Tech stack, components, data models, file structure | ✅ Complete |
 
 ---
 
@@ -57,7 +57,7 @@ docs/
 ### For Development
 1. Review [Product Brief](./product-brief.md) for project context
 2. Review [User Stories](./user-stories.md) for implementation requirements
-3. Review [Architecture](./technical/architecture.md) for technical design
+3. Review [Architecture](./architecture.md) for technical design
 4. Check sprint-artifacts/ for current sprint focus
 
 ### Next Steps
