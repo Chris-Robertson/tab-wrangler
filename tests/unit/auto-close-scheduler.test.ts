@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AutoCloseScheduler } from '../../src/background/modules/auto-close-scheduler';
 import type { StorageService } from '../../src/background/modules/storage-service';
 import type { ActivityTracker } from '../../src/background/modules/activity-tracker';
+import type { ArchiveManager } from '../../src/background/modules/archive-manager';
 import type { AutoCloseRule, WhitelistRule, Settings } from '../../src/shared/types';
 import type { ClosedTabEntry } from '../../src/shared/types/storage';
 import { RECENTLY_CLOSED_MAX_ENTRIES } from '../../src/shared/constants';
@@ -96,6 +97,7 @@ describe('AutoCloseScheduler', () => {
   let scheduler: AutoCloseScheduler;
   let mockStorage: Partial<StorageService>;
   let mockActivityTracker: Partial<ActivityTracker>;
+  let mockArchiveManager: Partial<ArchiveManager>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -111,6 +113,10 @@ describe('AutoCloseScheduler', () => {
 
     mockActivityTracker = {
       getActivity: vi.fn(),
+    };
+
+    mockArchiveManager = {
+      archiveTab: vi.fn().mockResolvedValue(undefined),
     };
 
     // Default happy-path mocks
@@ -130,6 +136,7 @@ describe('AutoCloseScheduler', () => {
     scheduler = new AutoCloseScheduler(
       mockStorage as StorageService,
       mockActivityTracker as ActivityTracker,
+      mockArchiveManager as ArchiveManager,
     );
   });
 

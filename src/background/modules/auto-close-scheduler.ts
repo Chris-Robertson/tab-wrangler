@@ -18,6 +18,7 @@
 
 import type { StorageService } from './storage-service';
 import type { ActivityTracker } from './activity-tracker';
+import type { ArchiveManager } from './archive-manager';
 import { findFirstMatchingRule, matchPattern } from '@shared/utils/pattern-matcher';
 import { generateId } from '@shared/utils/id-utils';
 import { RECENTLY_CLOSED_MAX_ENTRIES } from '@shared/constants';
@@ -32,6 +33,7 @@ export class AutoCloseScheduler {
   constructor(
     private storage: StorageService,
     private activityTracker: ActivityTracker,
+    private archiveManager: ArchiveManager,
   ) {}
 
   /**
@@ -87,8 +89,8 @@ export class AutoCloseScheduler {
     const now = Date.now();
 
     // ── Phase 1: Identify stale tabs ────────────────────────────────────────
-    // Build the full list of (entry, tabId) pairs before any side-effects.
-    const planned: Array<{ entry: ClosedTabEntry; tabId: number }> = [];
+    // Build the full list of (entry, tabId, tab) tuples before any side-effects.
+    const planned: Array<{ entry: ClosedTabEntry; tabId: number; tab: chrome.tabs.Tab }> = [];
 
     for (const tab of tabs) {
       // Skip tabs whose id chrome hasn't assigned yet
@@ -120,6 +122,7 @@ export class AutoCloseScheduler {
 
       planned.push({
         tabId: tab.id,
+        tab,
         entry: {
           id: generateId(),
           url: tab.url,
@@ -146,8 +149,9 @@ export class AutoCloseScheduler {
     // ── Phase 3: Remove tabs (best-effort) ─────────────────────────────────
     let closedCount = 0;
     const failedEntryIds = new Set<string>();
-    for (const { tabId, entry } of planned) {
+    for (const { tabId, tab, entry } of planned) {
       try {
+        await this.archiveManager.archiveTab(tab);
         await chrome.tabs.remove(tabId);
         closedCount++;
       } catch (error) {

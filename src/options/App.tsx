@@ -3,15 +3,18 @@ import { useSettings } from './hooks/useSettings';
 import { useGroupingRules, type NewRuleInput } from './hooks/useGroupingRules';
 import { useAutoCloseRules, type NewAutoCloseRuleInput } from './hooks/useAutoCloseRules';
 import { useWhitelistRules, type NewWhitelistRuleInput } from './hooks/useWhitelistRules';
+import { useArchiveExclusionRules, type NewArchiveExclusionRuleInput } from './hooks/useArchiveExclusionRules';
 import { GroupingRuleList } from './components/GroupingRuleList';
 import { RuleEditor } from './components/RuleEditor';
 import { AutoCloseRuleEditor } from './components/AutoCloseRuleEditor';
 import { AutoCloseRuleList } from './components/AutoCloseRuleList';
 import { WhitelistRuleEditor } from './components/WhitelistRuleEditor';
 import { WhitelistRuleList } from './components/WhitelistRuleList';
-import type { DuplicateDetectionMode, SortOrder, GroupingRule, AutoCloseRule, WhitelistRule } from '../shared/types/rules';
+import { ArchiveExclusionRuleEditor } from './components/ArchiveExclusionRuleEditor';
+import { ArchiveExclusionRuleList } from './components/ArchiveExclusionRuleList';
+import type { DuplicateDetectionMode, SortOrder, GroupingRule, AutoCloseRule, WhitelistRule, ArchiveExclusionRule } from '../shared/types/rules';
 
-type Tab = 'grouping' | 'autoclose' | 'whitelist' | 'settings';
+type Tab = 'grouping' | 'autoclose' | 'whitelist' | 'archive' | 'settings';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('grouping');
@@ -43,6 +46,12 @@ export function App() {
           Whitelist
         </button>
         <button
+          class={`tab ${activeTab === 'archive' ? 'active' : ''}`}
+          onClick={() => setActiveTab('archive')}
+        >
+          Archive
+        </button>
+        <button
           class={`tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
@@ -54,6 +63,7 @@ export function App() {
         {activeTab === 'grouping' && <GroupingRulesTab />}
         {activeTab === 'autoclose' && <AutoCloseRulesTab />}
         {activeTab === 'whitelist' && <WhitelistRulesTab />}
+        {activeTab === 'archive' && <ArchiveRulesTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </main>
 
@@ -380,6 +390,146 @@ function WhitelistRulesTab() {
 
       {editorOpen && (
         <WhitelistRuleEditor
+          rule={editingRule}
+          initialUrl={initialUrl}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
+      )}
+    </section>
+  );
+}
+
+function ArchiveRulesTab() {
+  const { rules, loading, addRule, updateRule, deleteRule, reorderRules } =
+    useArchiveExclusionRules();
+  const { settings, updateSettings } = useSettings();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<ArchiveExclusionRule | undefined>(undefined);
+  const [initialUrl, setInitialUrl] = useState<string | undefined>(undefined);
+  const [storageError, setStorageError] = useState<string | null>(null);
+
+  const handleAddClick = async () => {
+    setEditingRule(undefined);
+
+    try {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.url) {
+        setInitialUrl(activeTab.url);
+      }
+    } catch (error) {
+      console.error('Failed to get active tab URL:', error);
+      setInitialUrl(undefined);
+    }
+
+    setEditorOpen(true);
+  };
+
+  const handleEditClick = (rule: ArchiveExclusionRule) => {
+    setEditingRule(rule);
+    setInitialUrl(undefined);
+    setEditorOpen(true);
+  };
+
+  const handleSave = async (ruleData: NewArchiveExclusionRuleInput) => {
+    setStorageError(null);
+    try {
+      if (editingRule) {
+        await updateRule(editingRule.id, ruleData);
+      } else {
+        await addRule(ruleData);
+      }
+      setEditorOpen(false);
+      setEditingRule(undefined);
+      setInitialUrl(undefined);
+    } catch (error) {
+      console.error('[ArchiveRulesTab] Save failed:', error);
+      if (
+        error instanceof Error &&
+        (error.message.toLowerCase().includes('quota') ||
+          error.message.toLowerCase().includes('quota_bytes'))
+      ) {
+        setStorageError('Storage limit reached. Delete some rules to free up space.');
+      } else {
+        setStorageError('Failed to save rule. Please try again.');
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setEditorOpen(false);
+    setEditingRule(undefined);
+    setInitialUrl(undefined);
+  };
+
+  if (loading) {
+    return (
+      <section class="tab-content">
+        <div class="section-header">
+          <h2>Archive</h2>
+          <p>Define URL patterns for tabs that should NOT be saved to bookmarks when auto-closed.</p>
+        </div>
+        <div class="loading-state">
+          <div class="loading-spinner" />
+          <span>Loading rules...</span>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section class="tab-content">
+      <div class="section-header">
+        <h2>Archive</h2>
+        <p>Define URL patterns for tabs that should NOT be saved to bookmarks when auto-closed.</p>
+      </div>
+
+      {settings && (
+        <div class="settings-group">
+          <label class="setting checkbox">
+            <input
+              type="checkbox"
+              checked={settings.archiveEnabled}
+              onChange={(e) =>
+                updateSettings({ archiveEnabled: (e.target as HTMLInputElement).checked })
+              }
+            />
+            <span>Save auto-closed tabs to bookmarks</span>
+          </label>
+        </div>
+      )}
+
+      <ArchiveExclusionRuleList
+        rules={rules}
+        onEdit={handleEditClick}
+        onDelete={deleteRule}
+        onReorder={reorderRules}
+      />
+
+      {storageError && (
+        <div class="storage-error-banner" role="alert">
+          ⚠️ {storageError}
+          <button
+            type="button"
+            class="dismiss-button"
+            onClick={() => setStorageError(null)}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <button
+        class="primary-button"
+        onClick={handleAddClick}
+        style={{ marginTop: 'var(--spacing-md)' }}
+      >
+        Add Rule
+      </button>
+
+      {editorOpen && (
+        <ArchiveExclusionRuleEditor
           rule={editingRule}
           initialUrl={initialUrl}
           onSave={handleSave}

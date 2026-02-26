@@ -58,7 +58,7 @@ development_status:
   3-2-track-tab-activity: done
   3-3-auto-close-stale-tabs: done
   3-4-define-whitelist-rules: done
-  3-5-archive-tabs-to-bookmarks-before-auto-close: backlog
+  3-5-archive-tabs-to-bookmarks-before-auto-close: done
   3-6-undo-auto-closed-tabs: backlog
   epic-3-retrospective: optional
 
