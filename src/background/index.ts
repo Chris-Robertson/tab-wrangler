@@ -11,6 +11,7 @@ import { AutoGroupManager } from './modules/auto-group-manager';
 import { ActivityTracker } from './modules/activity-tracker';
 import { AutoCloseScheduler } from './modules/auto-close-scheduler';
 import { ArchiveManager } from './modules/archive-manager';
+import { TabSorter } from './modules/tab-sorter';
 import { ALARM_AUTO_CLOSE_CHECK } from '@shared/constants';
 import { isMessage } from '@shared/messaging';
 
@@ -21,6 +22,7 @@ const autoGroupManager = new AutoGroupManager(storage);
 const activityTracker = new ActivityTracker(storage);
 const archiveManager = new ArchiveManager(storage);
 const autoCloseScheduler = new AutoCloseScheduler(storage, activityTracker, archiveManager);
+const tabSorter = new TabSorter();
 
 /**
  * Extension installation handler
@@ -203,9 +205,20 @@ async function handleMessage(message: unknown): Promise<unknown> {
       };
     }
 
-    case 'SORT_TABS':
-      // TODO: Implement
-      return { success: true };
+    case 'SORT_TABS': {
+      switch (message.sortOrder) {
+        case 'domain': {
+          const result = await tabSorter.sortByDomain();
+          if (!result.success) {
+            // AC8: return { success: false, message } on failure
+            return { success: false, message: result.errors.join('; ') };
+          }
+          return { success: true, count: result.tabCount };
+        }
+        default:
+          return { success: false, message: `Sort order '${message.sortOrder}' not yet implemented` };
+      }
+    }
 
     case 'UNDO_CLOSE': {
       const { recentlyClosed } = await storage.getLocalStorage();

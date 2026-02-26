@@ -62,6 +62,15 @@ development_status:
   3-6-undo-auto-closed-tabs: backlog
   epic-3-retrospective: optional
 
+  # Epic 6: Tab Sorting (promoted — actively in development)
+  epic-6: in-progress
+  6-1-sort-tabs-by-domain: done
+  6-2-sort-tabs-by-url: backlog
+  6-3-sort-tabs-by-title: backlog
+  6-4-sort-tabs-by-age: backlog
+  6-5-preserve-tab-groups-when-sorting: backlog
+  epic-6-retrospective: optional
+
   # Epic 4: Extension UI
   epic-4: backlog
   4-1-extension-popup: backlog
@@ -72,12 +81,3 @@ development_status:
   epic-5: backlog
   5-1-vertical-tab-bar-support: backlog
   epic-5-retrospective: optional
-
-  # Epic 6: Tab Sorting
-  epic-6: backlog
-  6-1-sort-tabs-by-domain: backlog
-  6-2-sort-tabs-by-url: backlog
-  6-3-sort-tabs-by-title: backlog
-  6-4-sort-tabs-by-age: backlog
-  6-5-preserve-tab-groups-when-sorting: backlog
-  epic-6-retrospective: optional

@@ -196,3 +196,46 @@ describe('Background Message Handler - ORGANIZE_ALL_TABS', () => {
     });
   });
 });
+
+describe('Background Message Handler - SORT_TABS', () => {
+  let mockTabSorter: { sortByDomain: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTabSorter = { sortByDomain: vi.fn() };
+  });
+
+  it('returns { success: true, count } when all moves succeed', async () => {
+    mockTabSorter.sortByDomain.mockResolvedValue({
+      success: true,
+      tabCount: 5,
+      errors: [],
+    });
+
+    const result = await mockTabSorter.sortByDomain();
+    const response: ActionResponse = result.success
+      ? { success: true, count: result.tabCount }
+      : { success: false, message: result.errors.join('; ') };
+
+    expect(response.success).toBe(true);
+    expect(response.count).toBe(5);
+    expect(response.message).toBeUndefined();
+  });
+
+  it('returns { success: false, message } with joined errors when moves fail (AC8)', async () => {
+    mockTabSorter.sortByDomain.mockResolvedValue({
+      success: false,
+      tabCount: 3,
+      errors: ['Failed to move tab 1: Tab closed', 'Failed to move tab 2: Pin constraint'],
+    });
+
+    const result = await mockTabSorter.sortByDomain();
+    const response: ActionResponse = result.success
+      ? { success: true, count: result.tabCount }
+      : { success: false, message: result.errors.join('; ') };
+
+    expect(response.success).toBe(false);
+    expect(response.message).toBe('Failed to move tab 1: Tab closed; Failed to move tab 2: Pin constraint');
+    expect(response.count).toBeUndefined();
+  });
+});
