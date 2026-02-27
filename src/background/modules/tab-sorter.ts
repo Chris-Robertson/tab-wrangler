@@ -28,9 +28,11 @@ export class TabSorter {
       return { success: true, tabCount: 0, errors: [] };
     }
 
+    const unpinnedTabs = tabs.filter((t) => !t.pinned);
+
     return preserveGroups
-      ? this.groupAwareSortTabs(tabs)
-      : this.flatSortTabs(tabs);
+      ? this.groupAwareSortTabs(unpinnedTabs)
+      : this.flatSortTabs(unpinnedTabs);
   }
 
   /**
