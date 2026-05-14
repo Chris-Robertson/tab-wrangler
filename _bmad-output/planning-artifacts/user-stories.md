@@ -1,9 +1,9 @@
 # Tab Wrangler - User Stories
 
-**Version:** 1.2  
-**Date:** December 11, 2025  
+**Version:** 1.3  
+**Date:** February 27, 2026  
 **Status:** Draft  
-**Last Updated:** Added Tab Sorting feature (Epic 6)
+**Last Updated:** Added Story 3.7 — Time-of-Day Scheduled Auto-Close Rules
 
 ---
 
@@ -253,6 +253,66 @@
 
 ---
 
+### Story 3.7: Time-of-Day Scheduled Auto-Close Rules
+
+**As a** user who wants to maintain a clean workspace at predictable times  
+**I want to** define rules that automatically close tabs at a specific time of day  
+**So that** my browser is cleaned up at the start (or end) of my workday without any manual effort
+
+**Acceptance Criteria:**
+- [ ] Options page provides a "Scheduled Close" rule management section
+- [ ] Each rule has: rule name, schedule time (HH:MM, 24h format), days of week, URL pattern (optional), enabled flag
+- [ ] If no URL pattern is specified, the rule applies to ALL non-pinned tabs
+- [ ] Days of week presets: "Every day", "Weekdays (Mon–Fri)", "Weekends (Sat–Sun)", or custom day selection
+- [ ] Rules are registered as Chrome alarms (`chrome.alarms`) and re-registered on browser startup
+- [ ] Scheduled close fires within 1 minute of the configured time
+- [ ] Whitelist rules (Story 3.4) are respected — whitelisted tabs are never closed by scheduled rules
+- [ ] Archive-to-bookmarks behavior (Story 3.5) applies to scheduled closes per archive settings
+- [ ] Undo window (Story 3.6) captures tabs closed by scheduled rules
+- [ ] Rules are persisted in `chrome.storage.sync`
+- [ ] Enabled/disabled toggle per rule (alarms are registered/unregistered accordingly)
+
+**Example Rule:**
+```json
+{
+  "name": "Morning Cleanup",
+  "time": "09:00",
+  "days": ["mon", "tue", "wed", "thu", "fri"],
+  "pattern": null,
+  "patternType": null,
+  "enabled": true
+}
+```
+
+**Example Rule (domain-specific):**
+```json
+{
+  "name": "Close Reddit at Work Start",
+  "time": "09:00",
+  "days": ["mon", "tue", "wed", "thu", "fri"],
+  "pattern": "*.reddit.com/*",
+  "patternType": "glob",
+  "enabled": true
+}
+```
+
+**Behavior Notes:**
+- If the browser was closed when a scheduled time passed, the rule does **not** fire retroactively on next startup (skip-if-missed semantics)
+- Pinned tabs are never closed by scheduled rules (consistent with Story 3.3)
+- Multiple rules can share the same time (all are evaluated independently)
+
+**Technical Notes:**
+- Use `chrome.alarms.create()` with `periodInMinutes: 1440` (daily) — check current time against rules on each alarm tick
+- Alternatively, calculate exact next-fire time using `chrome.alarms` `when` parameter and reset after each fire
+- On `chrome.runtime.onStartup` and `chrome.runtime.onInstalled`, re-register all alarms from stored rules
+- `chrome.alarms` minimum period is 1 minute — precision is acceptable for this use case
+
+**Priority:** High  
+**Complexity:** Medium  
+**MVP:** ✅
+
+---
+
 ## Epic 4: Extension UI
 
 ### Story 4.1: Extension Popup
@@ -423,6 +483,7 @@
 | 3.4 Whitelist Rules | Medium | Low | ✅ |
 | 3.5 Archive to Bookmarks | High | Medium | ✅ |
 | 3.6 Undo Auto-Close | High | Medium | ✅ |
+| 3.7 Time-of-Day Scheduled Auto-Close | High | Medium | ✅ |
 | 4.1 Extension Popup | High | Medium | ✅ |
 | 4.2 Options Page | High | High | ✅ |
 | 5.1 Brave Compatibility | High | Low | ✅ |
@@ -436,11 +497,12 @@
 
 ## MVP Summary
 
-**Total MVP Stories:** 18  
+**Total MVP Stories:** 19  
 **Key Features:**
 - ✅ Duplicate removal (URL excluding query params)
 - ✅ Rule-based auto-grouping (glob + regex support)
 - ✅ Age-based auto-close with whitelists
+- ✅ **Time-of-day scheduled auto-close** (workday cleanup, daily/weekday/weekend schedules)
 - ✅ Archive to bookmarks (with exclusions)
 - ✅ 1-day undo window for auto-closed tabs
 - ✅ **Tab sorting** (by domain, URL, title, age)
