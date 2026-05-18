@@ -34,6 +34,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2025-12-11
+last_updated: 2026-05-18 # story 6.4 moved to review
 project: tab-wrangler
 tracking_system: file-system
 story_location: docs/sprint-artifacts
@@ -68,7 +69,7 @@ development_status:
   6-1-sort-tabs-by-domain: done
   6-2-sort-tabs-by-url: backlog
   6-3-sort-tabs-by-title: backlog
-  6-4-sort-tabs-by-age: backlog
+  6-4-sort-tabs-by-age: done
   6-5-preserve-tab-groups-when-sorting: done
   epic-6-retrospective: optional
 

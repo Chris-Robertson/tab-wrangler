@@ -1,11 +1,6 @@
-/**
- * TabSorter — Sorts tabs in the current window by various criteria.
- *
- * Story 6.1 implements sortByDomain() (flat).
- * Story 6.5 extends it with group-aware sorting via preserveGroups param.
- */
-
 import { extractBaseDomain, extractDomain, isValidUrl } from '@shared/utils/url-utils';
+import type { ActivityTracker } from './activity-tracker';
+import type { TabActivity } from '@shared/types';
 
 export interface SortTabsResult {
   success: boolean;
@@ -13,7 +8,18 @@ export interface SortTabsResult {
   errors: string[];
 }
 
+type TabComparator = (a: chrome.tabs.Tab, b: chrome.tabs.Tab) => number;
+type TabWithLastAccessed = chrome.tabs.Tab & { lastAccessed?: number };
+
+interface AgeSortKey {
+  known: boolean;
+  timestamp: number;
+  originalIndex: number;
+}
+
 export class TabSorter {
+  constructor(private activityTracker?: ActivityTracker) {}
+
   /**
    * Sort all tabs in the current window alphabetically by base domain.
    *
@@ -31,54 +37,64 @@ export class TabSorter {
     const unpinnedTabs = tabs.filter((t) => !t.pinned);
 
     return preserveGroups
-      ? this.groupAwareSortTabs(unpinnedTabs)
-      : this.flatSortTabs(unpinnedTabs);
+      ? this.groupAwareSortTabs(unpinnedTabs, this.compareByDomain)
+      : this.flatSortTabs(unpinnedTabs, this.compareByDomain);
   }
 
   /**
-   * Flat sort — all tabs sorted by domain key regardless of groupId (Story 6.1).
-   * AC4: When preserveGroups = false, behaviour is unchanged from Story 6.1.
+   * Sort all tabs in the current window by when they were opened.
+   *
+   * @param order — 'oldest' puts oldest tabs first; 'newest' puts newest first.
+   * @param preserveGroups — Same group-preservation semantics as sortByDomain.
    */
-  private async flatSortTabs(tabs: chrome.tabs.Tab[]): Promise<SortTabsResult> {
-    const sorted = [...tabs].sort((a, b) =>
-      this.getDomainSortKey(a.url ?? '').localeCompare(this.getDomainSortKey(b.url ?? '')),
-    );
+  async sortByAge(order: 'oldest' | 'newest', preserveGroups = false): Promise<SortTabsResult> {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const unpinnedTabs = tabs.filter((t) => !t.pinned);
+    const activityByTabId = this.activityTracker
+      ? await this.activityTracker.getAllActivity()
+      : {};
+    const compareTabs = this.createAgeComparator(activityByTabId, order);
+
+    return preserveGroups
+      ? this.groupAwareSortTabs(unpinnedTabs, compareTabs)
+      : this.flatSortTabs(unpinnedTabs, compareTabs);
+  }
+
+  /**
+   * Flat sort — all tabs sorted by comparator regardless of groupId.
+   */
+  private async flatSortTabs(
+    tabs: chrome.tabs.Tab[],
+    compareTabs: TabComparator,
+  ): Promise<SortTabsResult> {
+    const sorted = [...tabs].sort(compareTabs);
     const { errors } = await this.applyTabMoves(sorted);
     return { success: errors.length === 0, tabCount: sorted.length, errors };
   }
 
   /**
    * Group-aware sort — ungrouped tabs first, then groups sorted relative to
-   * each other; tabs within each group sorted internally (Story 6.5, AC1–AC3).
+   * each other; tabs within each group sorted internally.
    */
-  private async groupAwareSortTabs(tabs: chrome.tabs.Tab[]): Promise<SortTabsResult> {
+  private async groupAwareSortTabs(
+    tabs: chrome.tabs.Tab[],
+    compareTabs: TabComparator,
+  ): Promise<SortTabsResult> {
     const ungrouped = tabs.filter((t) => t.groupId === -1);
     const grouped = tabs.filter((t) => t.groupId !== -1);
 
-    // Sort ungrouped tabs by domain key
-    const sortedUngrouped = [...ungrouped].sort((a, b) =>
-      this.getDomainSortKey(a.url ?? '').localeCompare(this.getDomainSortKey(b.url ?? '')),
-    );
+    const sortedUngrouped = [...ungrouped].sort(compareTabs);
 
-    // Collect unique group IDs in original order
     const groupIds = [...new Set(grouped.map((t) => t.groupId))];
 
-    // Sort each group's tabs internally by domain key
     const sortedGroups = groupIds.map((groupId) => {
       const groupTabs = grouped.filter((t) => t.groupId === groupId);
-      return [...groupTabs].sort((a, b) =>
-        this.getDomainSortKey(a.url ?? '').localeCompare(this.getDomainSortKey(b.url ?? '')),
-      );
+      return [...groupTabs].sort(compareTabs);
     });
 
-    // Sort groups relative to each other by the first tab's domain key (AC2)
-    sortedGroups.sort((a, b) =>
-      this.getDomainSortKey(a[0].url ?? '').localeCompare(this.getDomainSortKey(b[0].url ?? '')),
-    );
+    sortedGroups.sort((a, b) => compareTabs(a[0], b[0]));
 
-    // Final order: ungrouped first, then groups (AC3)
     const finalOrder = [...sortedUngrouped, ...sortedGroups.flat()];
-
     const { errors } = await this.applyTabMoves(finalOrder);
     return { success: errors.length === 0, tabCount: finalOrder.length, errors };
   }
@@ -91,20 +107,68 @@ export class TabSorter {
     orderedTabs: chrome.tabs.Tab[],
   ): Promise<{ errors: string[] }> {
     const errors: string[] = [];
+    const targetStartIndex = orderedTabs.length > 0
+      ? Math.min(...orderedTabs.map((tab) => tab.index))
+      : 0;
+
     for (let i = 0; i < orderedTabs.length; i++) {
       const tab = orderedTabs[i];
-      if (tab.index !== i) {
+      const targetIndex = targetStartIndex + i;
+      if (tab.index !== targetIndex) {
         try {
-          await chrome.tabs.move(tab.id!, { index: i });
-          // Update cached index so subsequent iterations stay accurate
-          tab.index = i;
+          await chrome.tabs.move(tab.id!, { index: targetIndex });
+          tab.index = targetIndex;
         } catch (error) {
-          // Tab closed, or Chrome rejected due to group/pin constraints — continue
           errors.push(`Failed to move tab ${tab.id}: ${String(error)}`);
         }
       }
     }
     return { errors };
+  }
+
+  private compareByDomain = (a: chrome.tabs.Tab, b: chrome.tabs.Tab): number =>
+    this.getDomainSortKey(a.url ?? '').localeCompare(this.getDomainSortKey(b.url ?? ''));
+
+  private createAgeComparator(
+    activityByTabId: Record<number, TabActivity>,
+    order: 'oldest' | 'newest',
+  ): TabComparator {
+    return (a, b) => {
+      const keyA = this.buildAgeSortKey(a, activityByTabId);
+      const keyB = this.buildAgeSortKey(b, activityByTabId);
+
+      // Known timestamps always sort before unknown
+      if (keyA.known !== keyB.known) return keyA.known ? -1 : 1;
+
+      // Unknown: preserve original relative order
+      if (!keyA.known) return keyA.originalIndex - keyB.originalIndex;
+
+      // Known: sort by timestamp, tie-break with original index
+      const diff =
+        order === 'oldest'
+          ? keyA.timestamp - keyB.timestamp
+          : keyB.timestamp - keyA.timestamp;
+
+      return diff !== 0 ? diff : keyA.originalIndex - keyB.originalIndex;
+    };
+  }
+
+  private buildAgeSortKey(
+    tab: chrome.tabs.Tab,
+    activityByTabId: Record<number, TabActivity>,
+  ): AgeSortKey {
+    const activity = tab.id !== undefined ? activityByTabId[tab.id] : undefined;
+
+    if (activity?.createdAt !== undefined) {
+      return { known: true, timestamp: activity.createdAt, originalIndex: tab.index };
+    }
+
+    const lastAccessed = (tab as TabWithLastAccessed).lastAccessed;
+    if (lastAccessed !== undefined) {
+      return { known: true, timestamp: lastAccessed, originalIndex: tab.index };
+    }
+
+    return { known: false, timestamp: 0, originalIndex: tab.index };
   }
 
   /**
@@ -115,11 +179,11 @@ export class TabSorter {
    *   - hostname:   secondary key for consistent subdomain ordering
    *   - fullUrl:    tertiary key for deterministic tie-breaking
    *
-   * Non-http(s) or unparseable URLs use '\uFFFF' so they sort to the end.
+   * Non-http(s) or unparseable URLs use '￿' so they sort to the end.
    */
   private getDomainSortKey(url: string): string {
     if (!url || !isValidUrl(url)) {
-      return '\uFFFF';
+      return '￿';
     }
     const base = extractBaseDomain(url).toLowerCase();
     const host = extractDomain(url).toLowerCase();
