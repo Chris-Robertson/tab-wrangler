@@ -1,17 +1,21 @@
 /**
- * Unit tests for TabSorter — Story 6.1
+ * Unit tests for TabSorter — Story 6.1 + Story 6.4
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TabSorter } from '../../src/background/modules/tab-sorter';
+import type { ActivityTracker } from '../../src/background/modules/activity-tracker';
+import type { TabActivity } from '../../src/shared/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+type TabWithLastAccessed = chrome.tabs.Tab & { lastAccessed?: number };
 
 function makeTab(
   id: number,
   url: string,
   index: number,
-  overrides: Partial<chrome.tabs.Tab> = {},
+  overrides: Partial<TabWithLastAccessed> = {},
 ): chrome.tabs.Tab {
   return {
     id,
@@ -31,6 +35,26 @@ function makeTab(
   } as chrome.tabs.Tab;
 }
 
+function makeActivityTracker(
+  activities: Record<number, Partial<TabActivity>>,
+): ActivityTracker {
+  return {
+    getAllActivity: vi.fn().mockResolvedValue(
+      Object.fromEntries(
+        Object.entries(activities).map(([id, act]) => [
+          Number(id),
+          { tabId: Number(id), url: '', lastActiveAt: 0, createdAt: 0, ...act },
+        ]),
+      ),
+    ),
+  } as unknown as ActivityTracker;
+}
+
+const oldest = 1_699_999_900_000;
+const older = 1_700_000_000_000;
+const newer = 1_700_000_100_000;
+const newest = 1_700_000_200_000;
+
 // ── Chrome mock ────────────────────────────────────────────────────────────
 
 const mockTabs = {
@@ -46,7 +70,8 @@ describe('TabSorter', () => {
   let sorter: TabSorter;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockTabs.query.mockReset();
+    mockTabs.move.mockReset();
     mockTabs.move.mockResolvedValue({});
     sorter = new TabSorter();
   });
@@ -160,7 +185,7 @@ describe('TabSorter', () => {
 
       await sorter.sortByDomain();
 
-      // github.com stays first; chrome:// and about: both use '\uFFFF' as key
+      // github.com stays first; chrome:// and about: both use '￿' as key
       // so their relative sort is by URL, but they still both land after github.com
       expect(mockTabs.move).not.toHaveBeenCalledWith(1, expect.anything()); // github.com already at 0
     });
@@ -336,6 +361,345 @@ describe('TabSorter', () => {
 
       expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
       expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+  });
+
+  // ── sortByAge tests (Story 6.4) ───────────────────────────────────────────
+
+  describe('sortByAge() — age oldest/newest (Story 6.4)', () => {
+    it('ageOldest sorts by createdAt ascending (AC2)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },   // reddit — newer, should be last
+        2: { createdAt: oldest },  // apple — oldest, should be first
+        3: { createdAt: older },   // github — middle
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // Expected order: apple(2) idx 0, github(3) idx 1, reddit(1) idx 2
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 2 });
+    });
+
+    it('ageNewest sorts by createdAt descending (AC3)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },   // reddit — newest, should be first
+        2: { createdAt: oldest },  // apple — oldest, should be last
+        3: { createdAt: older },   // github — middle
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('newest');
+
+      // Expected order: reddit(1) stays at 0, github(3) at 1, apple(2) at 2
+      expect(mockTabs.move).not.toHaveBeenCalledWith(1, expect.anything()); // already at 0
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 2 });
+    });
+
+    it('createdAt beats lastAccessed when both are present (AC4)', async () => {
+      // tab 1: createdAt=older, lastAccessed=newest → should use createdAt (older)
+      // tab 2: createdAt=newer, lastAccessed=oldest → should use createdAt (newer)
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { lastAccessed: newest } as Partial<TabWithLastAccessed>),
+        makeTab(2, 'https://apple.com', 1, { lastAccessed: oldest } as Partial<TabWithLastAccessed>),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: older },   // tab 1 has createdAt=older
+        2: { createdAt: newer },   // tab 2 has createdAt=newer
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // Using createdAt: reddit(older) first, apple(newer) second
+      // reddit already at 0, apple already at 1 → no moves needed
+      expect(mockTabs.move).not.toHaveBeenCalled();
+    });
+
+    it('lastAccessed is used as fallback when no createdAt in activity (AC4)', async () => {
+      // tab 1: no activity, lastAccessed=newer
+      // tab 2: no activity, lastAccessed=older
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { lastAccessed: newer } as Partial<TabWithLastAccessed>),
+        makeTab(2, 'https://apple.com', 1, { lastAccessed: older } as Partial<TabWithLastAccessed>),
+      ];
+      const tracker = makeActivityTracker({}); // no activity for any tab
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // Using lastAccessed: apple(older) at 0, reddit(newer) at 1
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('unknown-age tabs sort after known-age tabs and preserve relative order (AC4)', async () => {
+      // tab 1: known (createdAt=older)
+      // tab 2: unknown (no activity, no lastAccessed) — originally idx 1
+      // tab 3: unknown (no activity, no lastAccessed) — originally idx 2
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: older },  // only tab 1 has known age
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // Expected: reddit(1) at 0, apple(2) at 1, github(3) at 2
+      // All already in correct order — no moves
+      expect(mockTabs.move).not.toHaveBeenCalledWith(1, expect.anything()); // already at 0
+      // apple and github are unknown, preserve relative order (2 then 3)
+      expect(mockTabs.move).not.toHaveBeenCalledWith(2, expect.anything()); // already at 1
+      expect(mockTabs.move).not.toHaveBeenCalledWith(3, expect.anything()); // already at 2
+    });
+
+    it('unknown-age tabs sort after known-age tabs (known first)', async () => {
+      // tab 1: unknown (idx 0)
+      // tab 2: known, newer (idx 1)
+      // After oldest sort: tab 2 (known) first, tab 1 (unknown) second
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),  // unknown
+        makeTab(2, 'https://apple.com', 1),   // known
+      ];
+      const tracker = makeActivityTracker({
+        2: { createdAt: newer },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // apple (known) moves to 0, reddit (unknown) moves to 1
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('promotes a known-age tab ahead of multiple unknown-age tabs while preserving unknown order', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        3: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 2 });
+    });
+
+    it('refreshes live tab indexes after a move failure before continuing', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const refreshedTabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newest },
+        2: { createdAt: oldest },
+        3: { createdAt: older },
+      });
+      mockTabs.query
+        .mockResolvedValueOnce(tabs)
+        .mockResolvedValueOnce(refreshedTabs);
+      mockTabs.move.mockRejectedValueOnce(new Error('Tab closed')).mockResolvedValue({});
+      const sorterWithTracker = new TabSorter(tracker);
+
+      const result = await sorterWithTracker.sortByAge('oldest');
+
+      expect(result.success).toBe(false);
+      expect(mockTabs.query).toHaveBeenCalledTimes(2);
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 2 });
+    });
+
+    it('pinned tabs are not passed to chrome.tabs.move() (AC6)', async () => {
+      const tabs = [
+        makeTab(1, 'https://pinned.com', 0, { pinned: true }),
+        makeTab(2, 'https://reddit.com', 1),
+        makeTab(3, 'https://apple.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        2: { createdAt: newer },
+        3: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      // Pinned tab (id=1) must never be moved
+      expect(mockTabs.move).not.toHaveBeenCalledWith(1, expect.anything());
+    });
+
+    it('starts age-sort moves after pinned tabs (AC6)', async () => {
+      const tabs = [
+        makeTab(1, 'https://pinned.com', 0, { pinned: true }),
+        makeTab(2, 'https://reddit.com', 1),
+        makeTab(3, 'https://apple.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        2: { createdAt: newer },
+        3: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 2 });
+    });
+
+    it('falls back to tab.lastAccessed when constructed without an ActivityTracker', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { lastAccessed: newer } as Partial<TabWithLastAccessed>),
+        makeTab(2, 'https://apple.com', 1, { lastAccessed: older } as Partial<TabWithLastAccessed>),
+      ];
+      mockTabs.query.mockResolvedValue(tabs);
+
+      await sorter.sortByAge('oldest');
+
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('treats createdAt zero as a known timestamp before falling back to lastAccessed (AC4)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { lastAccessed: newest } as Partial<TabWithLastAccessed>),
+        makeTab(2, 'https://apple.com', 1),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: 0 },
+        2: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      expect(mockTabs.move).not.toHaveBeenCalledWith(1, expect.anything());
+      expect(mockTabs.move).not.toHaveBeenCalledWith(2, expect.anything());
+    });
+
+    it('move errors are collected and do not abort remaining moves (AC9)', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },
+        2: { createdAt: oldest },
+        3: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      mockTabs.move.mockRejectedValueOnce(new Error('Tab closed')).mockResolvedValue({});
+
+      const result = await sorterWithTracker.sortByAge('oldest');
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(mockTabs.move.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('group-aware age sort: tabs within groups sorted by age (AC5)', async () => {
+      // ungrouped: none
+      // group 10: github (idx 0, newer), apple (idx 1, older)
+      // After oldest: apple first, then github within the group
+      const tabs = [
+        makeTab(1, 'https://github.com', 0, { groupId: 10 }),
+        makeTab(2, 'https://apple.com', 1, { groupId: 10 }),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },
+        2: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest', true);
+
+      // apple(2) moves to 0, github(1) moves to 1
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('group-aware age sort: groups ordered by first tab age after internal sort (AC5)', async () => {
+      // group 10: reddit (idx 0, newer)
+      // group 20: apple (idx 1, older)
+      // After oldest sort: group 20 (apple=older) before group 10 (reddit=newer)
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0, { groupId: 10 }),
+        makeTab(2, 'https://apple.com', 1, { groupId: 20 }),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },
+        2: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest', true);
+
+      // apple(2) to 0, reddit(1) to 1
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('group-aware age sort: ungrouped tabs appear before grouped tabs (AC5)', async () => {
+      // ungrouped: github (idx 0, newer)
+      // group 10: apple (idx 1, older)
+      // preserveGroups=true: ungrouped first, then grouped
+      const tabs = [
+        makeTab(1, 'https://github.com', 0),             // ungrouped
+        makeTab(2, 'https://apple.com', 1, { groupId: 10 }), // grouped, older
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newer },
+        2: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest', true);
+
+      // ungrouped github stays at 0, grouped apple stays at 1 — no moves
+      expect(mockTabs.move).not.toHaveBeenCalled();
     });
   });
 });

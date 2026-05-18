@@ -22,7 +22,7 @@ const autoGroupManager = new AutoGroupManager(storage);
 const activityTracker = new ActivityTracker(storage);
 const archiveManager = new ArchiveManager(storage);
 const autoCloseScheduler = new AutoCloseScheduler(storage, activityTracker, archiveManager);
-const tabSorter = new TabSorter();
+const tabSorter = new TabSorter(activityTracker);
 
 /**
  * Extension installation handler
@@ -211,7 +211,20 @@ async function handleMessage(message: unknown): Promise<unknown> {
         case 'domain': {
           const result = await tabSorter.sortByDomain(settings.sortPreserveGroups);
           if (!result.success) {
-            // AC8: return { success: false, message } on failure
+            return { success: false, message: result.errors.join('; ') };
+          }
+          return { success: true, count: result.tabCount };
+        }
+        case 'ageOldest': {
+          const result = await tabSorter.sortByAge('oldest', settings.sortPreserveGroups);
+          if (!result.success) {
+            return { success: false, message: result.errors.join('; ') };
+          }
+          return { success: true, count: result.tabCount };
+        }
+        case 'ageNewest': {
+          const result = await tabSorter.sortByAge('newest', settings.sortPreserveGroups);
+          if (!result.success) {
             return { success: false, message: result.errors.join('; ') };
           }
           return { success: true, count: result.tabCount };
