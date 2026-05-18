@@ -85,9 +85,9 @@ so that I can identify stale tabs or find recent ones.
 
 ### Review Findings
 
-- [x] [Review][Patch] Pinned-tab prefix offset is not handled [src/background/modules/tab-sorter.ts:112]
-- [x] [Review][Patch] `sortByAge()` can throw when constructed without an `ActivityTracker` [src/background/modules/tab-sorter.ts:53]
-- [x] [Review][Patch] Falsy `createdAt` is treated as missing [src/background/modules/tab-sorter.ts:155]
+- [x] Review - Patch: Pinned-tab prefix offset is not handled [src/background/modules/tab-sorter.ts:112]
+- [x] Review - Patch: `sortByAge()` can throw when constructed without an `ActivityTracker` [src/background/modules/tab-sorter.ts:53]
+- [x] Review - Patch: Falsy `createdAt` is treated as missing [src/background/modules/tab-sorter.ts:155]
 
 ## Dev Notes
 

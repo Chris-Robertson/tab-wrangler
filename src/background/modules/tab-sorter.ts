@@ -107,9 +107,7 @@ export class TabSorter {
     orderedTabs: chrome.tabs.Tab[],
   ): Promise<{ errors: string[] }> {
     const errors: string[] = [];
-    const targetStartIndex = orderedTabs.length > 0
-      ? Math.min(...orderedTabs.map((tab) => tab.index))
-      : 0;
+    let targetStartIndex = this.getTargetStartIndex(orderedTabs);
 
     for (let i = 0; i < orderedTabs.length; i++) {
       const tab = orderedTabs[i];
@@ -120,10 +118,40 @@ export class TabSorter {
           tab.index = targetIndex;
         } catch (error) {
           errors.push(`Failed to move tab ${tab.id}: ${String(error)}`);
+          try {
+            await this.refreshTabIndexes(orderedTabs);
+            targetStartIndex = this.getTargetStartIndex(orderedTabs);
+          } catch (refreshError) {
+            errors.push(`Failed to refresh tab indexes: ${String(refreshError)}`);
+            break;
+          }
         }
       }
     }
     return { errors };
+  }
+
+  private getTargetStartIndex(tabs: chrome.tabs.Tab[]): number {
+    return tabs.length > 0 ? Math.min(...tabs.map((tab) => tab.index)) : 0;
+  }
+
+  private async refreshTabIndexes(tabs: chrome.tabs.Tab[]): Promise<void> {
+    const liveTabs = await chrome.tabs.query({ currentWindow: true });
+    const indexById = new Map<number, number>();
+
+    for (const tab of liveTabs) {
+      if (tab.id !== undefined) {
+        indexById.set(tab.id, tab.index);
+      }
+    }
+
+    for (const tab of tabs) {
+      if (tab.id === undefined) continue;
+      const liveIndex = indexById.get(tab.id);
+      if (liveIndex !== undefined) {
+        tab.index = liveIndex;
+      }
+    }
   }
 
   private compareByDomain = (a: chrome.tabs.Tab, b: chrome.tabs.Tab): number =>

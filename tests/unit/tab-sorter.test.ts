@@ -70,7 +70,8 @@ describe('TabSorter', () => {
   let sorter: TabSorter;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockTabs.query.mockReset();
+    mockTabs.move.mockReset();
     mockTabs.move.mockResolvedValue({});
     sorter = new TabSorter();
   });
@@ -493,6 +494,55 @@ describe('TabSorter', () => {
       // apple (known) moves to 0, reddit (unknown) moves to 1
       expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 0 });
       expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+    });
+
+    it('promotes a known-age tab ahead of multiple unknown-age tabs while preserving unknown order', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        3: { createdAt: older },
+      });
+      mockTabs.query.mockResolvedValue(tabs);
+      const sorterWithTracker = new TabSorter(tracker);
+
+      await sorterWithTracker.sortByAge('oldest');
+
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 0 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(2, { index: 2 });
+    });
+
+    it('refreshes live tab indexes after a move failure before continuing', async () => {
+      const tabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const refreshedTabs = [
+        makeTab(1, 'https://reddit.com', 0),
+        makeTab(2, 'https://apple.com', 1),
+        makeTab(3, 'https://github.com', 2),
+      ];
+      const tracker = makeActivityTracker({
+        1: { createdAt: newest },
+        2: { createdAt: oldest },
+        3: { createdAt: older },
+      });
+      mockTabs.query
+        .mockResolvedValueOnce(tabs)
+        .mockResolvedValueOnce(refreshedTabs);
+      mockTabs.move.mockRejectedValueOnce(new Error('Tab closed')).mockResolvedValue({});
+      const sorterWithTracker = new TabSorter(tracker);
+
+      const result = await sorterWithTracker.sortByAge('oldest');
+
+      expect(result.success).toBe(false);
+      expect(mockTabs.query).toHaveBeenCalledTimes(2);
+      expect(mockTabs.move).toHaveBeenCalledWith(3, { index: 1 });
+      expect(mockTabs.move).toHaveBeenCalledWith(1, { index: 2 });
     });
 
     it('pinned tabs are not passed to chrome.tabs.move() (AC6)', async () => {
